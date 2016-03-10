@@ -1,0 +1,58 @@
+<html>
+    <title>
+        simple webrtc demo
+    </title>
+    <body>
+         本端path:<input type="text" id="local-path" value="" size="20">
+         对端path:<input type="text" id="remote-path" value="" size="20">
+         <div>
+                <video id="self-view"  autoplay muted></video>
+         </div>
+         <div>
+                <video id="remote-view"  autoplay muted></video>
+         </div>
+         <script src="https://cdn.wilddog.com/sdk/js/current/wilddog.js" ></script>
+         <script src ="../wild-peerconnection.js" ></script>
+         <script>
+             var localPathInput = document.getElementById("local-path");
+             var remotePathInput = document.getElementById("remote-path");
+             var localView = document.getElementById("self-view");
+             var remoteView = document.getElementById("remote-view");
+             var ref = new Wilddog("https://test123.wilddogio.com/");
+             var localRef = null;
+             var remoteRef = null;
+             var wildPeer = null;
+             localPathInput.onchange = function(){
+                var value = localPathInput.value;
+                if(value.length>0){
+                    localRef = ref.child(value);
+                }
+                wildPeer = new WildPeerConnection(localRef);
+                wildPeer.on("remoteRef",function(remoteRef){
+                    remotePathInput.value = new URL(remoteRef.toString()).path;
+                })
+             }
+             remotePathInput.onchange = function(){
+                 var value = remotePathInput.value;
+                 if(value.length>0){
+                     remoteRef = ref.child(value);
+                     if(wildPeer){
+                         wildPeer.setRemoteRef(remoteRef);
+                         navigator.getUserMedia({"video":false},function(stream){
+                             wildPeer.addStream(stream);     
+                         },function(err){
+                             console.log(err)
+                             
+                         });
+                         
+                     } 
+                 }
+                 
+             }
+             
+             
+         </script>        
+    </body>
+    
+    
+</html>
