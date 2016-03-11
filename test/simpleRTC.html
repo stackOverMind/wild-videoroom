@@ -24,38 +24,10 @@
              var remoteView = document.getElementById("remote-view");
              var confirmBtn = document.getElementById("confirm")
              var sendBtn = document.getElementById("send");
-             var ref = new Wilddog("https://dongkai.wilddogio.com/");
+             var ref = new Wilddog("https://test123.wilddogio.com/");
              var localRef = null;
              var remoteRef = null;
              var wildPeer = null;
-             localPathInput.onchange = function(){
-                var value = localPathInput.value;
-                if(value.length>0){
-                    localRef = ref.child(value);
-                }
-                wildPeer = new WildPeerConnection(localRef);
-                wildPeer.on('addstream',function(stream){
-                    remoteView.src = URL.createObjectURL(stream);
-
-                })
-             }
-             remotePathInput.onchange = function(){
-                 var value = remotePathInput.value;
-                 if(value.length>0){
-                     remoteRef = ref.child(value);
-                     if(wildPeer){
-                         wildPeer.setRemoteRef(remoteRef);
-                         navigator.getUserMedia({"video":true},function(stream){
-                             wildPeer.addStream(stream);     
-                         },function(err){
-                             console.log(err)
-                             
-                         });
-                         
-                     } 
-                 }
-                 
-             }
              confirmBtn.onclick = function(){
                 var lp = localPathInput.value;
                 if(lp.length>0){
