@@ -12,7 +12,7 @@ npm install wild-peerconnection
 ## 使用
 
 发送端
-```
+```js
 var ref = new Wilddog('https://<YOUR_APPID>.wilddogio.com/SOMEPATH1'); //本端mailbox的地址
 var remoteRef = new Wilddog('https://<YOUR_APPID>.wilddogio.com/SOMEPATH2');//对端mailbox的地址
 
@@ -25,7 +25,7 @@ navigator.getUserMedia({"video":true},function(stream){
 ```
 接收端
 
-```
+```js
 var ref = new Wilddog('https://<YOUR_APPID>.wilddogio.com/SOMEPATH2'); //本端mailbox的地址
 var remoteRef = new Wilddog('https://<YOUR_APPID>.wilddogio.com/SOMEPATH1');//对端mailbox的地址
 
@@ -73,7 +73,7 @@ peer.on('addstream',function(stream){
  
 #### event
 
-* addstream
+* `addstream`
 
-* removestream
+* `removestream`
 
