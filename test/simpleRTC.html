@@ -1,23 +1,29 @@
 <html>
-    <title>
-        simple webrtc demo
-    </title>
-    <body>
-         本端path:<input type="text" id="local-path" value="" size="20">
-         对端path:<input type="text" id="remote-path" value="" size="20">
-         <div>
-                <video id="self-view"  autoplay muted></video>
-         </div>
-         <div>
-                <video id="remote-view"  autoplay muted></video>
-         </div>
-         <script src="https://cdn.wilddog.com/sdk/js/current/wilddog.js" ></script>
-         <script src ="../wild-peerconnection.js" ></script>
-         <script>
-             var localPathInput = document.getElementById("local-path");
+<title>
+    simple webrtc demo
+</title>
+
+<body>
+    本端path:
+    <input type="text" id="local-path" value="" size="20"> 对端path:
+    <input type="text" id="remote-path" value="" size="20">
+    <button id="confirm">confirm</button>
+    <button id="send">send video</button>
+    <div>
+        <video id="self-view" autoplay muted></video>
+    </div>
+    <div>
+        <video id="remote-view" autoplay muted></video>
+    </div>
+    <script src="https://cdn.wilddog.com/sdk/js/current/wilddog.js"></script>
+    <script src="../wild-peerconnection.js"></script>
+    <script>
+        var localPathInput = document.getElementById("local-path");
              var remotePathInput = document.getElementById("remote-path");
              var localView = document.getElementById("self-view");
              var remoteView = document.getElementById("remote-view");
+             var confirmBtn = document.getElementById("confirm")
+             var sendBtn = document.getElementById("send");
              var ref = new Wilddog("https://dongkai.wilddogio.com/");
              var localRef = null;
              var remoteRef = null;
@@ -28,9 +34,6 @@
                     localRef = ref.child(value);
                 }
                 wildPeer = new WildPeerConnection(localRef);
-                wildPeer.on("remoteRef",function(remoteRef){
-                    remotePathInput.value = new URL(remoteRef.toString()).pathname;
-                })
                 wildPeer.on('addstream',function(stream){
                     remoteView.src = URL.createObjectURL(stream);
 
@@ -53,10 +56,30 @@
                  }
                  
              }
-             
-             
-         </script>        
-    </body>
-    
-    
+             confirmBtn.onclick = function(){
+                var lp = localPathInput.value;
+                if(lp.length>0){
+                    localRef = ref.child(lp);
+                }
+                var rp = remotePathInput.value;
+                if(rp.length>0){
+                    remoteRef = ref.child(rp);
+                }
+                wildPeer = new WildPeerConnection(localRef,remoteRef);
+                wildPeer.on('addstream',function(stream){
+                    remoteView.src = URL.createObjectURL(stream);
+                }) 
+                 
+             }
+             sendBtn.onclick = function(){
+                 navigator.getUserMedia({"video":true},function(stream){
+                     wildPeer.addStream(stream);     
+                 },function(err){
+                     console.log(err)
+                 }); 
+             }
+    </script>
+</body>
+
+
 </html>

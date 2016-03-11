@@ -62,12 +62,12 @@ WildPeerConnection.prototype.setPeerConnection = function (peerConnection) {
             console.error(new Error("remote ref not set"));
         }
         this.peerConnection.createOffer(function (desc) {
-        this.peerConnection.setLocalDescription(desc);
-        this.remoteRef.child("signal")
-            .update({ "offer": JSON.stringify(desc), "remotePath": new URL(this.ref.toString()).pathname });
-    }.bind(this))
-         
-       
+            this.peerConnection.setLocalDescription(desc);
+            this.remoteRef.child("signal/offer")
+                .set(JSON.stringify(desc));
+        }.bind(this))
+
+
     }.bind(this);
     peerConnection.onremovestream = function (ev) {
         this.emit("removestream", ev.stream);
@@ -93,24 +93,19 @@ WildPeerConnection.prototype.setPeerConnection = function (peerConnection) {
         var answer = snapshot.val().answer;
         var remotePath = snapshot.val().remotePath;
         if (offer != null && offer != this.lastOffer) {
-            if (remotePath != null) {
-                this.lastOffer = offer;
-                //别人给我发offer
-                console.log(offer);
-                var desc = new RTCSessionDescription(JSON.parse(offer));
-                peerConnection.setRemoteDescription(desc);
-                this.listenCandidate_();
-                //回answer 并且set remoteref
+            this.lastOffer = offer;
+            //别人给我发offer
+            console.log(offer);
+            var desc = new RTCSessionDescription(JSON.parse(offer));
+            peerConnection.setRemoteDescription(desc);
+            this.listenCandidate_();
+            //回answer 并且set remoteref
 
-                peerConnection.createAnswer(function (desc) {
-                    peerConnection.setLocalDescription(desc);
-                    this.ref.root().child(remotePath + "/signal/answer").set(JSON.stringify(desc));
-                    if (this.remoteRef == null || this.remoteRef.toString() != this.ref.root().child(remotePath).toString()) {
-                        this.remoteRef = this.ref.root().child(remotePath);
-                        this.emit("remoteRef", this.remoteRef);
-                    }
-                }.bind(this))
-            }
+            peerConnection.createAnswer(function (desc) {
+                peerConnection.setLocalDescription(desc);
+                this.ref.root().child(remotePath + "/signal/answer").set(JSON.stringify(desc));
+            }.bind(this))
+
         }
         if (answer != null && answer != this.lastAnswer) {
             this.lastAnswer = answer;
@@ -143,12 +138,7 @@ WildPeerConnection.prototype.addStream = function (stream) {
 
 
 }
-WildPeerConnection.prototype.removeStream = function(stream){
+WildPeerConnection.prototype.removeStream = function (stream) {
     this.peerConnection.removeStream(stream);
 }
-WildPeerConnection.prototype.setRemoteRef = function (remoteRef) {
-    this.remoteRef = remoteRef;
-}
-WildPeerConnection.prototype.getRemoteRef = function () {
-    return this.remoteRef;
-}
+
