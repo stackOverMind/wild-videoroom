@@ -30,7 +30,7 @@ WildPeerConnection.prototype.setPeerConnection = function (peerConnection) {
 
     this.iceConnectionState = peerConnection.iceConnectionState;
     this.localDescription = peerConnection.localDescription
-    this.iceGetheringState = peerConnection.iceGetheringState;
+    this.iceGatheringState = peerConnection.iceGatheringState;
     this.peerIdentity = peerConnection.peerIdentity;
     this.remoteDescription = peerConnection.remoteDescription;
     this.signalingState = peerConnection.signalingState;
@@ -39,9 +39,12 @@ WildPeerConnection.prototype.setPeerConnection = function (peerConnection) {
     peerConnection.oniceconnectionstatechange = function (ev) {
         this.iceConnectionState = peerConnection.iceConnectionState;
         this.ref.child("iceConnectionState").set(this.iceConnectionState);
-        this.signalRef.off('value');
-        this.candidateRef.off('child_added');
+        if(this.iceConnectionState == 'failed' ||this.iceConnectionState == 'disconnected'){
+            this.signalRef.off('value');
+            this.candidateRef.off('child_added');
+        }
         this.emit("iceconnectionstate", peerConnection.iceConnectionState);
+
 
     }.bind(this);
 
@@ -58,6 +61,13 @@ WildPeerConnection.prototype.setPeerConnection = function (peerConnection) {
             
         }
     }.bind(this);
+    /*    peerConnection.onicegatheringstatechange = function (ev) {
+            this.iceGatheringState = peerConnection.iceGatheringState;
+            if (this.iceGatheringState == 'complete') {
+                this.emit("gather-complete");
+            }
+    
+        }*/
     peerConnection.onidentityresult = function (ev) {
         this.emit("identityresult", ev);
     }.bind(this)
@@ -74,6 +84,7 @@ WildPeerConnection.prototype.setPeerConnection = function (peerConnection) {
         this.emit("removestream", ev.stream);
     }.bind(this);
     peerConnection.onaddstream = function (ev) {
+        console.log("onaddstream",ev);
         this.emit("addstream", ev.stream);
     }.bind(this);
 
@@ -101,15 +112,16 @@ WildPeerConnection.prototype.signalValueCb_ = function (snapshot) {
         this.lastOffer = offer;
         //别人给我发offer
         console.log(offer);
-        var desc = new RTCSessionDescription(JSON.parse(offer));
-        this.peerConnection.setRemoteDescription(desc);
+
         //回answer 并且set remoteref
-        console.log("create anwser")
-        this.peerConnection.createAnswer(function (desc) {
-            console.log("create anwser success");
-            this.peerConnection.setLocalDescription(desc);
-            this.remoteRef.child("signal/answer").set(JSON.stringify(desc));
-        }.bind(this))
+        var desc = new RTCSessionDescription(JSON.parse(offer));
+        this.peerConnection.setRemoteDescription(desc, function () {
+            console.log("remoteDesc",desc);
+            this.sendAnswer_();
+        }.bind(this),function(err){
+            console.error(err);
+            
+        });
 
     }
     if (answer != null && answer != this.lastAnswer) {
@@ -122,9 +134,9 @@ WildPeerConnection.prototype.candidateCb_ = function (snap) {
     var sdp = JSON.parse(snap.val());
     if (sdp != null) {
         var candidate = new RTCIceCandidate(sdp);
-
+        console.log("add candidate")
         this.peerConnection.addIceCandidate(candidate, function () {
-            console.log("add candidate")
+            console.log("add candidate success")
         }, function (err) {
             console.log(err);
         })
@@ -142,11 +154,27 @@ WildPeerConnection.prototype.sendOffer_ = function () {
         console.error(err);
     })
 }
+WildPeerConnection.prototype.sendAnswer_ = function () {
+    this.peerConnection.createAnswer(function (desc) {
+        console.log("create anwser success");
+        this.peerConnection.setLocalDescription(desc);
+        this.remoteRef.child("signal/answer").set(JSON.stringify(desc));
+    }.bind(this),function(err){
+        console.error("create answer:",err);
+        
+    })
+}
 WildPeerConnection.prototype.addStream = function (stream) {
     if (this.peerConnection == null) {
         console.error(new Error("peerConnection not set"))
     }
     this.peerConnection.addStream(stream);
+
+    this.peerConnection.createOffer(function (desc) {
+        this.peerConnection.setLocalDescription(desc);
+    }.bind(this), function (err) {
+        console.error(err);
+    })
 }
 
 WildPeerConnection.prototype.removeStream = function (stream) {
@@ -157,7 +185,7 @@ WildPeerConnection.prototype.close = function () {
     this.peerConnection.close();
 }
 
-}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_1c374c2b.js","/")
+}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_4bfd9a67.js","/")
 },{"buffer":3,"g5I+bs":5,"webrtc-adapter":6,"wildemitter":12}],2:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
