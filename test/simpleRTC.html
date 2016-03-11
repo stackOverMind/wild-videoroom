@@ -8,7 +8,8 @@
     <input type="text" id="local-path" value="" size="20"> 对端path:
     <input type="text" id="remote-path" value="" size="20">
     <button id="confirm">confirm</button>
-    <button id="send">send video</button>
+    <button id="add">addStream</button>
+    <button id="remove">removeStream</button>
     <div>
         <video id="self-view" autoplay muted></video>
     </div>
@@ -19,37 +20,47 @@
     <script src="../wild-peerconnection.js"></script>
     <script>
         var localPathInput = document.getElementById("local-path");
-             var remotePathInput = document.getElementById("remote-path");
-             var localView = document.getElementById("self-view");
-             var remoteView = document.getElementById("remote-view");
-             var confirmBtn = document.getElementById("confirm")
-             var sendBtn = document.getElementById("send");
-             var ref = new Wilddog("https://test123.wilddogio.com/");
-             var localRef = null;
-             var remoteRef = null;
-             var wildPeer = null;
-             confirmBtn.onclick = function(){
-                var lp = localPathInput.value;
-                if(lp.length>0){
-                    localRef = ref.child(lp);
-                }
-                var rp = remotePathInput.value;
-                if(rp.length>0){
-                    remoteRef = ref.child(rp);
-                }
-                wildPeer = new WildPeerConnection(localRef,remoteRef);
-                wildPeer.on('addstream',function(stream){
-                    remoteView.src = URL.createObjectURL(stream);
-                }) 
-                 
-             }
-             sendBtn.onclick = function(){
-                 navigator.getUserMedia({"video":true},function(stream){
-                     wildPeer.addStream(stream);     
-                 },function(err){
-                     console.log(err)
-                 }); 
-             }
+        var remotePathInput = document.getElementById("remote-path");
+        var localView = document.getElementById("self-view");
+        var remoteView = document.getElementById("remote-view");
+        var confirmBtn = document.getElementById("confirm")
+        var addBtn = document.getElementById("add");
+        var removeBtn = document.getElementById("remove");
+        var ref = new Wilddog("https://test123.wilddogio.com/");
+        var localRef = null;
+        var remoteRef = null;
+        var wildPeer = null;
+        var currentStream = null;
+        confirmBtn.onclick = function(){
+           var lp = localPathInput.value;
+           if(lp.length>0){
+               localRef = ref.child(lp);
+           }
+           var rp = remotePathInput.value;
+           if(rp.length>0){
+               remoteRef = ref.child(rp);
+           }
+           wildPeer = new WildPeerConnection(localRef,remoteRef);
+           wildPeer.on('addstream',function(stream){
+               remoteView.src = URL.createObjectURL(stream);
+           }) 
+            
+        }
+        addBtn.onclick = function(){
+            navigator.getUserMedia({"video": true},function(stream){
+                console.log("addStream");
+                currentStream = stream;
+                wildPeer.addStream(stream);     
+            },function(err){
+                console.log(err)
+            }); 
+        }
+        removeBtn.onclick = function(){
+            if(currentStream == null){
+                return;
+            }
+            wildPeer.removeStream(currentStream);
+        }
     </script>
 </body>
 
