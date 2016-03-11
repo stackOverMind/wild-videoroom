@@ -44,30 +44,36 @@ peer.on('addstream',function(stream){
 
 * `WildPeerConnection(localRef,remoteRef)`
 
-*  localRef:`WilddogRef` 本地mailbox地址
+ * localRef:`WilddogRef` 本地mailbox地址
 
-*  remoteRef:`WilddogRef` 远端mailbox地址
+ * remoteRef:`WilddogRef` 远端mailbox地址
 
-*  config:`object` 
+ * config:`object` 
 
-* addStream(stream)
+* `addStream(stream)`
 
-*  stream `MediaStream`
+ * stream `MediaStream`
 
-* removeStream(stream)
+* `removeStream(stream)`
 
-*  stream `MediaStream`
+ * stream `MediaStream`
 
-* setRemoteRef(remoteRef)
+* `on(event,handler)`
 
-*  remoteRef `WilddogRef`
+ * event:`string` 
+ 
+ * handler: `function`
+ 
+* `off(event,handler)`
 
-* getRemoteRef()
-
-*  return `WilddogRef` 远端ref
-
-
-
+ * event:`string` 
+ 
+ * handler: `function`
+ 
+ 
 #### event
 
+* addstream
+
+* removestream
 
