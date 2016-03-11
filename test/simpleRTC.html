@@ -18,7 +18,7 @@
              var remotePathInput = document.getElementById("remote-path");
              var localView = document.getElementById("self-view");
              var remoteView = document.getElementById("remote-view");
-             var ref = new Wilddog("https://test123.wilddogio.com/");
+             var ref = new Wilddog("https://dongkai.wilddogio.com/");
              var localRef = null;
              var remoteRef = null;
              var wildPeer = null;
@@ -29,7 +29,11 @@
                 }
                 wildPeer = new WildPeerConnection(localRef);
                 wildPeer.on("remoteRef",function(remoteRef){
-                    remotePathInput.value = new URL(remoteRef.toString()).path;
+                    remotePathInput.value = new URL(remoteRef.toString()).pathname;
+                })
+                wildPeer.on('addstream',function(stream){
+                    remoteView.src = URL.createObjectURL(stream);
+
                 })
              }
              remotePathInput.onchange = function(){
@@ -38,7 +42,7 @@
                      remoteRef = ref.child(value);
                      if(wildPeer){
                          wildPeer.setRemoteRef(remoteRef);
-                         navigator.getUserMedia({"video":false},function(stream){
+                         navigator.getUserMedia({"video":true},function(stream){
                              wildPeer.addStream(stream);     
                          },function(err){
                              console.log(err)
