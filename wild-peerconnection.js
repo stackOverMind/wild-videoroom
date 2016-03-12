@@ -44,6 +44,7 @@ WildPeerConnection.prototype.setPeerConnection = function (peerConnection) {
             this.offerRef.off('value');
             this.answerRef.off('value');
             this.candidateRef.off('child_added');
+            this.ref.remove();
         }
         this.emit("iceconnectionstate", peerConnection.iceConnectionState);
 
@@ -71,6 +72,10 @@ WildPeerConnection.prototype.setPeerConnection = function (peerConnection) {
 
         }
     }.bind(this);
+    peerConnection.onicegatheringstatechange = function(){
+        this.iceGatheringState = this.peerConnection.iceGatheringState;
+        console.log("icegatheringstate ", this.iceGatheringState);
+    }.bind(this);
 
     peerConnection.onidentityresult = function (ev) {
         this.emit("identityresult", ev);
@@ -82,13 +87,14 @@ WildPeerConnection.prototype.setPeerConnection = function (peerConnection) {
         this.emit("idpvalidationerror", ev);
     }.bind(this);
     peerConnection.onnegotiationneeded = function (ev) {
-        this.sendOffer_();
+        this.sendOffer_(function(err){
+            
+        }.bind(this));
     }.bind(this);
     peerConnection.onremovestream = function (ev) {
         this.emit("removestream", ev.stream);
     }.bind(this);
     peerConnection.onaddstream = function (ev) {
-        console.log("onaddstream", ev);
         this.emit("addstream", ev.stream);
     }.bind(this);
 
@@ -120,7 +126,9 @@ WildPeerConnection.prototype.offerCb_ = function (snapshot) {
         var desc = new RTCSessionDescription(JSON.parse(offer));
         this.peerConnection.setRemoteDescription(desc, function () {
             console.log("remoteDesc", desc);
-            this.sendAnswer_();
+            this.sendAnswer_(function(err){
+                console.error(err);
+            });
         }.bind(this), function (err) {
             console.error(err);
 
@@ -159,39 +167,44 @@ WildPeerConnection.prototype.candidateCb_ = function (snap) {
 
     }
 }
-WildPeerConnection.prototype.sendOffer_ = function () {
-    if (!this.remoteRef) {
-        console.error(new Error("remote ref not set"));
-    }
+WildPeerConnection.prototype.sendOffer_ = function (cb) {
+    
     this.peerConnection.createOffer(function (desc) {
         this.peerConnection.setLocalDescription(desc, function () {
             this.remoteRef.child("signal/offer")
-                .set(JSON.stringify(desc));
+                .set(JSON.stringify(desc),function(err){
+                    if(err){
+                        cb(err);
+                    }
+                    else{
+                        cb();
+                    }
+                }.bind(this));
         }.bind(this), function (err) {
-            console.error(err);
+            cb(err)
         });
     }.bind(this), function (err) {
-        console.error(err);
+        cb(err);
     })
 }
-WildPeerConnection.prototype.sendAnswer_ = function () {
+WildPeerConnection.prototype.sendAnswer_ = function (cb) {
     this.peerConnection.createAnswer(function (desc) {
         console.log("create anwser success");
 
         this.peerConnection.setLocalDescription(desc, function () {
             this.remoteRef.child("signal/answer").set(JSON.stringify(desc), function (err) {
                 if (err) {
-                    console.error(err);
+                    cb(err);
                 }
                 else {
-
+                    cb();
                 }
             });   
         }.bind(this), function (err) {
-            console.error(err);
+            cb(err);
         });
     }.bind(this), function (err) {
-        console.error("create answer:", err);
+        cb(err);
 
     })
 }
@@ -216,7 +229,7 @@ WildPeerConnection.prototype.close = function () {
     this.peerConnection.close();
 }
 
-}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_f06cfc7f.js","/")
+}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_f3256b4f.js","/")
 },{"buffer":3,"g5I+bs":5,"webrtc-adapter":6,"wildemitter":12}],2:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
