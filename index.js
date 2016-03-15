@@ -15,7 +15,7 @@ function WildPeerConnection(ref, remoteRef, config) { //清空ref数据
     this.config = config;
     this.config[bundlePolicy] = 'max-bundle';
     this.remoteRef = remoteRef;
-    this.initPeerConnection_(config);
+    this.initPeerConnection_(this.config);
     this.bufferedCandidate = [];
 }
 WildEmitter.mixin(WildPeerConnection);
