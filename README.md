@@ -42,34 +42,36 @@ peer.on('addstream',function(stream){
 
 #### method
 
-* `WildPeerConnection(localRef,remoteRef)`
+* `WildPeerConnection(localRef,remoteRef[,config])` 构造方法
 
  * localRef:`WilddogRef` 本地mailbox地址
 
  * remoteRef:`WilddogRef` 远端mailbox地址
 
- * config:`object` 
+ * config:`object` `RTCPeerConnection`的配置
 
-* `addStream(stream)`
-
- * stream `MediaStream`
-
-* `removeStream(stream)`
+* `addStream(stream)` 添加流
 
  * stream `MediaStream`
 
-* `on(event,handler)`
+* `removeStream(stream)` 删除流
+
+ * stream `MediaStream`
+
+* `on(event,handler)` 监听事件
 
  * event:`string` 
  
  * handler: `function`
  
-* `off(event,handler)`
+* `off(event,handler)` 取消监听事件
 
  * event:`string` 
  
  * handler: `function`
  
+* `close()` 关闭peer
+
  
 #### event
 
@@ -77,3 +79,14 @@ peer.on('addstream',function(stream){
 
 * `removestream`
 
+* `connected`
+
+* `disconnected`
+
+#### known issues
+
+* 由于浏览器支持视频格式的不同可能出现连接不成功的情况
+
+* firefox 不支持 removeStream操作
+
+* firefox chrome 都对renegotiation 支持不好,所以目前最好的方案是
