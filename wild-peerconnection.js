@@ -15,7 +15,7 @@ function WildPeerConnection(ref, remoteRef, config) { //清空ref数据
     this.answerRef = this.ref.child("signal/answer")
     this.candidateRef = this.ref.child("candidate");
     this.config = config;
-    this.config[bundlePolicy] = 'max-bundle';
+    this.config['bundlePolicy'] = 'max-bundle';
     this.remoteRef = remoteRef;
     this.initPeerConnection_(this.config);
     this.bufferedCandidate = [];
@@ -230,7 +230,7 @@ WildPeerConnection.prototype.close = function () {
     this.peerConnection.close();
 }
 
-}).call(this,require("IrXUsu"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_37b8d052.js","/")
+}).call(this,require("IrXUsu"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_6493be7b.js","/")
 },{"IrXUsu":5,"buffer":2,"webrtc-adapter":6,"wildemitter":12}],2:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /*!

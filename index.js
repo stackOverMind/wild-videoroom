@@ -13,7 +13,7 @@ function WildPeerConnection(ref, remoteRef, config) { //清空ref数据
     this.answerRef = this.ref.child("signal/answer")
     this.candidateRef = this.ref.child("candidate");
     this.config = config;
-    this.config[bundlePolicy] = 'max-bundle';
+    this.config['bundlePolicy'] = 'max-bundle';
     this.remoteRef = remoteRef;
     this.initPeerConnection_(this.config);
     this.bufferedCandidate = [];
