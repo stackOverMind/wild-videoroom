@@ -15,8 +15,9 @@ function WildPeerConnection(ref, remoteRef, config) { //清空ref数据
     this.answerRef = this.ref.child("signal/answer")
     this.candidateRef = this.ref.child("candidate");
     this.config = config;
+    this.config['bundlePolicy'] = 'max-bundle';
     this.remoteRef = remoteRef;
-    this.initPeerConnection_(config);
+    this.initPeerConnection_(this.config);
     this.bufferedCandidate = [];
     this.bufferedNewCandidate = {};
     this.tick = null;
@@ -225,7 +226,7 @@ WildPeerConnection.prototype.close = function () {
     this.peerConnection.close();
 }
 
-}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_a8a2ac50.js","/")
+}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_abe51db3.js","/")
 },{"buffer":3,"g5I+bs":5,"webrtc-adapter":6,"wildemitter":12}],2:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
