@@ -125,7 +125,10 @@ WildPeerConnection.prototype.offerCb_ = function (snapshot) {
         var desc = new RTCSessionDescription(JSON.parse(offer));
         this.peerConnection.setRemoteDescription(desc, function () {
             this.sendAnswer_(function (err) {
-                console.error(err);
+                if(err){
+                    console.error(err);
+                }
+                
             });
             //listen to candidate
             this.candidateRef.on("child_added", this.candidateCb_, this);
@@ -155,7 +158,8 @@ WildPeerConnection.prototype.candidateCb_ = function (snap) {
         var candidate = new RTCIceCandidate(sdp);
             this.peerConnection.addIceCandidate(candidate, function () {
             }, function (err) {
-                console.log(err);
+                if(err)
+                    console.error(err);
             })
     }
 }

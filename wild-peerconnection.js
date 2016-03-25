@@ -127,7 +127,10 @@ WildPeerConnection.prototype.offerCb_ = function (snapshot) {
         var desc = new RTCSessionDescription(JSON.parse(offer));
         this.peerConnection.setRemoteDescription(desc, function () {
             this.sendAnswer_(function (err) {
-                console.error(err);
+                if(err){
+                    console.error(err);
+                }
+                
             });
             //listen to candidate
             this.candidateRef.on("child_added", this.candidateCb_, this);
@@ -157,7 +160,8 @@ WildPeerConnection.prototype.candidateCb_ = function (snap) {
         var candidate = new RTCIceCandidate(sdp);
             this.peerConnection.addIceCandidate(candidate, function () {
             }, function (err) {
-                console.log(err);
+                if(err)
+                    console.error(err);
             })
     }
 }
@@ -213,7 +217,7 @@ WildPeerConnection.prototype.close = function () {
     this.peerConnection.close();
 }
 
-}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_dffa3814.js","/")
+}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_69ea266c.js","/")
 },{"buffer":3,"g5I+bs":5,"webrtc-adapter":6,"wildemitter":12}],2:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
