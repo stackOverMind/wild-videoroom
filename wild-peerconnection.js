@@ -131,7 +131,6 @@ WildPeerConnection.prototype.offerCb_ = function (snapshot) {
             if (err) {
                 console.error(err);
             }
-
         });
         //listen to candidate
         this.candidateRef.on("child_added", this.candidateCb_, this);
@@ -210,7 +209,7 @@ WildPeerConnection.prototype.addStream = function (stream, callback) {
     var timeout = setTimeout(function(){
         clearTimeout(timeout);
         this.addStreamCb_.apply(this,new Error("connecting timeout"));
-    },20000);
+    }.bind(this),20000);
     this.once('connected',function(){
         clearTimeout(timeout);
         this.addStreamCb_.apply(this,null);
@@ -226,7 +225,7 @@ WildPeerConnection.prototype.close = function () {
     this.peerConnection.close();
 }
 
-}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_a00323fe.js","/")
+}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_3f079170.js","/")
 },{"buffer":3,"g5I+bs":5,"webrtc-adapter":6,"wildemitter":12}],2:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';

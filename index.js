@@ -129,7 +129,6 @@ WildPeerConnection.prototype.offerCb_ = function (snapshot) {
             if (err) {
                 console.error(err);
             }
-
         });
         //listen to candidate
         this.candidateRef.on("child_added", this.candidateCb_, this);
@@ -208,7 +207,7 @@ WildPeerConnection.prototype.addStream = function (stream, callback) {
     var timeout = setTimeout(function(){
         clearTimeout(timeout);
         this.addStreamCb_.apply(this,new Error("connecting timeout"));
-    },20000);
+    }.bind(this),20000);
     this.once('connected',function(){
         clearTimeout(timeout);
         this.addStreamCb_.apply(this,null);
