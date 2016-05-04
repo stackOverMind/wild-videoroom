@@ -5,18 +5,14 @@
 
 <body>
     <div>
-    本端发送maibox:
-    <input type="text" id="local-sender-path" value="" size="20">对端接收maibox:
-    <input type="text" id="remote-receiver-path" value="" size="20">
+    发送maibox:
+    <input type="text" id="sender-path" value="" size="20">
     </div>
     <div>
-    本端接收mailbox:
-    <input type="text" id="local-receiver-path" value="" size="20"> 对端发送mailbox:
-    <input type="text" id="remote-sender-path" value="" size="20">
+    接收mailbox:
+    <input type="text" id="receiver-path" value="" size="20"> 
     </div>
     <button id="confirm">confirm</button>
-    <button id="add">addStream</button>
-    <button id="remove">removeStream</button>
     <div>
         <video id="self-view" autoplay muted></video>
     </div>
@@ -26,66 +22,36 @@
     <script src="https://cdn.wilddog.com/sdk/js/current/wilddog.js"></script>
     <script src="../wild-peerconnection.js"></script>
     <script>
-        var localSenderInput = document.getElementById("local-sender-path");
-        var remoteReceiverInput = document.getElementById("remote-receiver-path");
-        
-        var localReceiverInput = document.getElementById("local-receiver-path");
-        var remoteSenderInput = document.getElementById("remote-sender-path");
-        
+        var senderInput = document.getElementById("sender-path");
+        var receiverInput = document.getElementById("receiver-path");
         var localView = document.getElementById("self-view");
         var remoteView = document.getElementById("remote-view");
         var confirmBtn = document.getElementById("confirm")
-        var addBtn = document.getElementById("add");
-        var removeBtn = document.getElementById("remove");
         var ref = new Wilddog("https://test123.wilddogio.com/");
-        var localSenderRef = null;
-        var localReceiverRef = null;
-        var remoteSenderRef = null;
-        var remoteReceiverRef = null;
-        
+        var senderRef = null;
+        var receiverRef = null; 
         var receiver = null;
         var sender = null;
-        
         var currentStream = null;
         confirmBtn.onclick = function(){
-           var lsP = localSenderInput.value;
-           if(lsP.length>0){
-               localSenderRef = ref.child(lsP);
+           var sP = senderInput.value;
+           if(sP.length>0){
+               senderRef = ref.child(sP);
            }
-           var rrP = remoteReceiverInput.value;
-           if(rrP.length>0){
-               remoteReceiverRef = ref.child(rrP);
-           }
-           var lrP = localReceiverInput.value;
-           if(lrP.length>0){
-               localReceiverRef = ref.child(lrP);
-           }
-           var rsP = remoteSenderInput.value;
-           if(rsP.length>0){
-               remoteSenderRef = ref.child(rsP);
-           }
-           
-           receiver = new WildPeerConnection(localReceiverRef,remoteSenderRef);
-           receiver.on('addstream',function(stream){
+           var rP = receiverInput.value;
+           if(rP.length>0){
+               receiverRef = ref.child(rP);
+           }          
+           receiver = new WildPeerConnection.Receiver(receiverRef,function(stream){
                remoteView.src = URL.createObjectURL(stream);
-           }) 
-           sender = new WildPeerConnection(localSenderRef,remoteReceiverRef);
-            
-        }
-        addBtn.onclick = function(){
-            navigator.getUserMedia({"video": true},function(stream){
+           });
+           navigator.getUserMedia({"video": true},function(stream){
                 console.log("addStream");
                 currentStream = stream;
-                sender.addStream(stream);     
+                sender = new WildPeerConnection.Sender(senderRef,stream);    
             },function(err){
                 console.log(err)
             }); 
-        }
-        removeBtn.onclick = function(){
-            if(currentStream == null){
-                return;
-            }
-            wildPeer.removeStream(currentStream);
         }
     </script>
 </body>

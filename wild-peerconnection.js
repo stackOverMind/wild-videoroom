@@ -2,14 +2,14 @@
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 var WildEmitter = require("wildemitter");
 var adapter = require('webrtc-adapter');
-module.exports = WildPeerConnection;
+module.exports = {};
 if (window)
-    window.WildPeerConnection = WildPeerConnection;
+    window.WildPeerConnection = module.exports;
 var sender = require('./sender');
 var receiver = require('./receiver');
 module.exports.Sender = sender;
 module.exports.Receiver = receiver;
-}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_7fb0b823.js","/")
+}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_38245b21.js","/")
 },{"./receiver":13,"./sender":14,"buffer":3,"g5I+bs":5,"webrtc-adapter":6,"wildemitter":12}],2:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -3587,7 +3587,6 @@ Receiver.prototype.init_ = function () {
     this.signalingState = this.peerConnection.signalingState;
     this.peerConnection.oniceconnectionstatechange = function (ev) {
         this.iceConnectionState = this.peerConnection.iceConnectionState;
-        this.ref.child("iceConnectionState").set(this.iceConnectionState);
         if (this.iceConnectionState == 'failed' || this.iceConnectionState == 'disconnected') {
             this.offerRef.off('value');
             this.senderCandiRef.off('child_added');
@@ -3617,7 +3616,7 @@ Receiver.prototype.init_ = function () {
     this.ref.onDisconnect().remove();
     this.tick = setInterval(function () {
         if (Object.keys(this.bufferedNewCandidate).length > 0) {
-            this.senderCandiRef.update(this.bufferedNewCandidate);
+            this.receiverCandiRef.update(this.bufferedNewCandidate);
             this.bufferedNewCandidate = {};
         }
     }.bind(this), 1000);
@@ -3696,7 +3695,7 @@ var Sender = function (ref, stream, config) {
     this.ref = ref;
     this.stream = stream;
     this.offerRef = this.ref.child("offer");
-    this.anwserRef = this.ref.child("answer");
+    this.answerRef = this.ref.child("answer");
     this.senderCandiRef = this.ref.child("senderCandi");
     this.receiverCandiRef = this.ref.child("receiverCandi");
     this.config = config || {};
@@ -3704,6 +3703,7 @@ var Sender = function (ref, stream, config) {
 
 }
 WildEmitter.mixin(Sender);
+module.exports = Sender ; 
 Sender.prototype.init_ = function () {
     this.peerConnection = new RTCPeerConnection();
     this.iceConnectionState = this.peerConnection.iceConnectionState;
@@ -3715,7 +3715,6 @@ Sender.prototype.init_ = function () {
     this.peerConnection.addStream(this.stream);
     this.peerConnection.oniceconnectionstatechange = function (ev) {
         this.iceConnectionState = this.peerConnection.iceConnectionState;
-        this.ref.child("iceConnectionState").set(this.iceConnectionState);
         if (this.iceConnectionState == 'failed' || this.iceConnectionState == 'disconnected') {
             this.answerRef.off('value');
             this.receiverCandiRef.off('child_added');
@@ -3757,7 +3756,7 @@ Sender.prototype.init_ = function () {
 
 Sender.prototype.answerCb_ = function (snapshot) {
     var answer = snapshot.val();
-    if (answer != null && this.signalingState == 'have-local-offer') {
+    if (answer != null /*&& this.signalingState == 'have-local-offer'*/) {
         this.lastAnswer = answer;
         var desc = new RTCSessionDescription(JSON.parse(answer));
         this.peerConnection.setRemoteDescription(desc, function () {

@@ -26,7 +26,6 @@ Receiver.prototype.init_ = function () {
     this.signalingState = this.peerConnection.signalingState;
     this.peerConnection.oniceconnectionstatechange = function (ev) {
         this.iceConnectionState = this.peerConnection.iceConnectionState;
-        this.ref.child("iceConnectionState").set(this.iceConnectionState);
         if (this.iceConnectionState == 'failed' || this.iceConnectionState == 'disconnected') {
             this.offerRef.off('value');
             this.senderCandiRef.off('child_added');
@@ -56,7 +55,7 @@ Receiver.prototype.init_ = function () {
     this.ref.onDisconnect().remove();
     this.tick = setInterval(function () {
         if (Object.keys(this.bufferedNewCandidate).length > 0) {
-            this.senderCandiRef.update(this.bufferedNewCandidate);
+            this.receiverCandiRef.update(this.bufferedNewCandidate);
             this.bufferedNewCandidate = {};
         }
     }.bind(this), 1000);

@@ -13,12 +13,10 @@ npm install wild-peerconnection
 
 发送端
 ```js
-var ref = new Wilddog('https://<YOUR_APPID>.wilddogio.com/SOMEPATH1'); //本端mailbox的地址
-var remoteRef = new Wilddog('https://<YOUR_APPID>.wilddogio.com/SOMEPATH2');//对端mailbox的地址
-
-var peer = new WildPeerConnection(ref,remoteRef,config);//config 会直接传给RTCPeerConnection
+var ref = new Wilddog('https://<YOUR_APPID>.wilddogio.com/SOMEPATH1'); //signaling channel 的地址
+var peer = null;//config 会直接传给RTCPeerConnection
 navigator.getUserMedia({"video":true},function(stream){
-    peer.addStream(stream)  
+    peer = new WildPeerConnection.Sender(ref,stream,config);
 })
 
 
@@ -26,63 +24,14 @@ navigator.getUserMedia({"video":true},function(stream){
 接收端
 
 ```js
-var ref = new Wilddog('https://<YOUR_APPID>.wilddogio.com/SOMEPATH2'); //本端mailbox的地址
-var remoteRef = new Wilddog('https://<YOUR_APPID>.wilddogio.com/SOMEPATH1');//对端mailbox的地址
+var ref = new Wilddog('https://<YOUR_APPID>.wilddogio.com/SOMEPATH1');
 
-var peer = new WildPeerConnection(ref,remoteRef,config);
-peer.on('addstream',function(stream){
-    view.src = URL.createObjectURL(stream); //view 是 <video> 标签
-})
+var peer = new WildPeerConnection(ref,function(stream){
+    view.src = URL.createObjectURL(stream);
+    
+},config);
 
 ``` 
-
-## API
-
-### WildPeerConnection
-
-#### method
-
-* `WildPeerConnection(localRef,remoteRef[,config])` 构造方法
-
- * localRef:`WilddogRef` 本地mailbox地址
-
- * remoteRef:`WilddogRef` 远端mailbox地址
-
- * config:`object` `RTCPeerConnection`的配置
-
-* `addStream(stream)` 添加流
-
- * stream `MediaStream`
-
-* `removeStream(stream)` 删除流
-
- * stream `MediaStream`
-
-* `on(event,handler)` 监听事件
-
- * event:`string` 
- 
- * handler: `function`
- 
-* `off(event,handler)` 取消监听事件
-
- * event:`string` 
- 
- * handler: `function`
- 
-* `close()` 关闭peer
-
- 
-#### event
-
-* `addstream`
-
-* `removestream`
-
-* `connected`
-
-* `disconnected`
-
 #### known issues
 
 * 由于浏览器支持视频格式的不同可能出现连接不成功的情况
