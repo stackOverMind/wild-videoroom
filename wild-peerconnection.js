@@ -9,7 +9,7 @@ var sender = require('./sender');
 var receiver = require('./receiver');
 module.exports.Sender = sender;
 module.exports.Receiver = receiver;
-}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_38245b21.js","/")
+}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_63203e70.js","/")
 },{"./receiver":13,"./sender":14,"buffer":3,"g5I+bs":5,"webrtc-adapter":6,"wildemitter":12}],2:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -3564,123 +3564,164 @@ var adapter = require('webrtc-adapter');
 
 
 var Receiver = function (ref, onStream, config) {
-    this.peerConnection = null;
-    this.ref = ref;
-    this.onStream = onStream;
-    this.offerRef = this.ref.child("offer");
-    this.anwserRef = this.ref.child("answer");
-    this.senderCandiRef = this.ref.child("senderCandi");
-    this.receiverCandiRef = this.ref.child("receiverCandi");
-    this.config = config || {};
-    this.init_();
+  this.peerConnection = null;
+  this.ref = ref;
+  this.onStream = onStream;
+  this.config = config;
+  this.state = 'connecting';
+  this._init();
 
 }
 WildEmitter.mixin(Receiver);
 module.exports = Receiver;
-Receiver.prototype.init_ = function () {
-    this.peerConnection = new RTCPeerConnection();
-    this.iceConnectionState = this.peerConnection.iceConnectionState;
-    this.localDescription = this.peerConnection.localDescription
-    this.iceGatheringState = this.peerConnection.iceGatheringState;
-    this.peerIdentity = this.peerConnection.peerIdentity;
-    this.remoteDescription = this.peerConnection.remoteDescription;
-    this.signalingState = this.peerConnection.signalingState;
-    this.peerConnection.oniceconnectionstatechange = function (ev) {
-        this.iceConnectionState = this.peerConnection.iceConnectionState;
-        if (this.iceConnectionState == 'failed' || this.iceConnectionState == 'disconnected') {
-            this.offerRef.off('value');
-            this.senderCandiRef.off('child_added');
-            clearInterval(this.tick);
-            this.tick = null;
-            this.emit("disconnected");
-        }
-        if (this.iceConnectionState == 'connected') {
-            this.emit('connected');
-        }
+Receiver.prototype._init = function () {
 
-    }.bind(this);
-
-    this.bufferedNewCandidate = {};
-    this.peerConnection.onicecandidate = function (ev) {
-        if (ev.candidate == null) {
+  this.ref.limitToLast(1).on('child_added', function (snapshot) {
+    if (this.peerConnection != null) {
+      this._destroyPeerConnection();
+    }
+    if (snapshot.child('answer').val() == null)
+      this._initPeerConnection(snapshot.ref(),
+        (function () {
+          //onReady
+          //do nothing
+          this.state = 'connected'
+        }).bind(this),
+        (function () {
+          //onDisconnect
+          this.state = 'connecting';
+          //do noting wait for sender to reconnect
+        }).bind(this),
+        (function (ev) {
+          //onIceCandidate
+          if (ev.candidate == null) {
             return;
-        }
-        var data = JSON.stringify(ev.candidate);
-
-        var ref = this.receiverCandiRef.push();
-        var key = ref.key();
-        this.bufferedNewCandidate[key] = data;
-
-    }.bind(this);
-    this.offerRef.on('value', this.offerCb_, this);
-    this.ref.onDisconnect().remove();
-    this.tick = setInterval(function () {
-        if (Object.keys(this.bufferedNewCandidate).length > 0) {
-            this.receiverCandiRef.update(this.bufferedNewCandidate);
-            this.bufferedNewCandidate = {};
-        }
-    }.bind(this), 1000);
-    this.peerConnection.onaddstream = function (ev) {
-        this.onStream.call(this,ev.stream);
-    }.bind(this);      
+          }
+          var data = JSON.stringify(ev.candidate);
+          this.receiverCandiRef.push(data);
+        }).bind(this),
+        (function (snapshot) {
+          //onRemoteOffer
+          this.offerCb_(snapshot);
+        }).bind(this),
+        (function (ev) {
+          this.onStream(ev.stream);
+        }).bind(this));
+  }.bind(this));
 }
+Receiver.prototype._initPeerConnection = function (ref, _onReady, _onDisconnect, _onIceCandidate, _onRemoteOffer, _onStreamAdd) {
+  var onDisconnect = _onDisconnect;
+  var onReady = _onReady;
+  this.currentRef = ref;
+  this.offerRef = this.currentRef.child("offer");
+  this.answerRef = this.currentRef.child("answer");
+  this.senderCandiRef = this.currentRef.child("senderCandi");
+  this.receiverCandiRef = this.currentRef.child("receiverCandi");
+  this.peerConnection = new RTCPeerConnection(this.config);
+  this.iceConnectionState = this.peerConnection.iceConnectionState;
+  this.peerConnection.oniceconnectionstatechange = function (ev) {
+    this.iceConnectionState = this.peerConnection.iceConnectionState;
+    if (this.iceConnectionState == 'failed' || this.iceConnectionState == 'disconnected') {
 
-Receiver.prototype.candidateCb_ = function (snap) {
-    var sdp = JSON.parse(snap.val());
-    if (sdp != null) {
-        var candidate = new RTCIceCandidate(sdp);
-        this.peerConnection.addIceCandidate(candidate, function () {
-        }, function (err) {
-            if (err)
-                console.error(err);
-        })
+      if (onDisconnect) {
+        onDisconnect();
+        onDisconnect = null;
+      }
     }
-}
-
-Receiver.prototype.sendAnswer_ = function (cb) {
-    this.peerConnection.createAnswer(function (desc) {
-        this.peerConnection.setLocalDescription(desc, function () {
-            this.anwserRef.set(JSON.stringify(desc), function (err) {
-                if (err) {
-                    cb(err);
-                }
-                else {
-                    cb(null);
-                }
-            });
-        }.bind(this), function (err) {
-            cb(err);
-        });
-    }.bind(this), function (err) {
-        cb(err);
-    })
-}
-Receiver.prototype.offerCb_ = function (snapshot) {
-    var offer = snapshot.val();
-    if(offer == null){
-        return;
+    if (this.iceConnectionState == 'connected') {
+      if (onReady) {
+        onReady();
+        onReady = null;
+      }
     }
-    //回answer 并且set remoteref
-    var desc = new RTCSessionDescription(JSON.parse(offer));
-    
-    this.peerConnection.setRemoteDescription(desc, function () {
-        this.sendAnswer_(function (err) {
-            if (err) {
-                console.error(err);
-            }
-        });
-        //listen to candidate
-        this.senderCandiRef.on("child_added", this.candidateCb_, this);
-    }.bind(this), function (err) {
-        console.error(err);
+  }.bind(this);
+  this.peerConnection.onicecandidate = _onIceCandidate;
+  this.offerRef.on('value', _onRemoteOffer, this);
+  this.peerConnection.onaddstream = _onStreamAdd;
+}
+Receiver.prototype._destroyPeerConnection = function () {
 
-    });
-
-    // }
+  if (this.peerConnection == null) {
+    //already destroyed
+    return;
+  }
+  try {
+    this.peerConnection.close()
+  } catch (e) {
+    //do nothing
+  }
+  this.offerRef.off('value');
+  this.senderCandiRef.off('child_added');
+  this.currentRef = null;
+  this.offerRef = null;
+  this.answerRef = null;
+  this.senderCandiRef = null;
+  this.receiverCandiRef = null;
+  //init webRTCPeerConnection
+  this.peerConnection = null;
+  this.iceConnectionState = null;
 }
 
 Receiver.prototype.close = function () {
-    this.peerConnection.close();
+  this._destroyPeerConnection()
+}
+
+Receiver.prototype.candidateCb_ = function (snap) {
+  var sdp = JSON.parse(snap.val());
+  if (sdp != null) {
+    var candidate = new RTCIceCandidate(sdp);
+    this.peerConnection.addIceCandidate(candidate, function () {
+    }, function (err) {
+      if (err)
+        console.error(err);
+    })
+  }
+}
+
+Receiver.prototype.sendAnswer_ = function (cb) {
+  this.peerConnection.createAnswer(function (desc) {
+    this.peerConnection.setLocalDescription(desc, function () {
+      this.answerRef.set(JSON.stringify(desc), function (err) {
+        if (err) {
+          cb(err);
+        }
+        else {
+          cb(null);
+        }
+      });
+    }.bind(this), function (err) {
+      cb(err);
+    });
+  }.bind(this), function (err) {
+    cb(err);
+  })
+}
+Receiver.prototype.offerCb_ = function (snapshot) {
+  var offer = snapshot.val();
+  if (offer == null) {
+    return;
+  }
+  //回answer 并且set remoteref
+  var desc = new RTCSessionDescription(JSON.parse(offer));
+
+  this.peerConnection.setRemoteDescription(desc, function () {
+    this.sendAnswer_(function (err) {
+      if (err) {
+        console.error(err);
+      }
+    });
+    //listen to candidate
+    this.senderCandiRef.on("child_added", this.candidateCb_, this);
+  }.bind(this), function (err) {
+    console.error(err);
+
+  });
+
+  // }
+}
+
+Receiver.prototype.close = function () {
+  this.peerConnection.close();
 }
 
 }).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/receiver.js","/")
@@ -3691,116 +3732,161 @@ var adapter = require('webrtc-adapter');
 
 
 var Sender = function (ref, stream, config) {
-    this.peerConnection = null;
-    this.ref = ref;
-    this.stream = stream;
-    this.offerRef = this.ref.child("offer");
-    this.answerRef = this.ref.child("answer");
-    this.senderCandiRef = this.ref.child("senderCandi");
-    this.receiverCandiRef = this.ref.child("receiverCandi");
-    this.config = config || {};
-    this.init_();
-
+  this.peerConnection = null;
+  this.ref = ref;
+  this.stream = stream;
+  this.config = config ;
+  this.rc = 0;//重试次数
+  this.state = 'connecting';
+  this._connect();
 }
+Sender.RECONNECT_MAX = 10;
 WildEmitter.mixin(Sender);
-module.exports = Sender ; 
-Sender.prototype.init_ = function () {
-    this.peerConnection = new RTCPeerConnection();
-    this.iceConnectionState = this.peerConnection.iceConnectionState;
-    this.localDescription = this.peerConnection.localDescription
-    this.iceGatheringState = this.peerConnection.iceGatheringState;
-    this.peerIdentity = this.peerConnection.peerIdentity;
-    this.remoteDescription = this.peerConnection.remoteDescription;
-    this.signalingState = this.peerConnection.signalingState;
-    this.peerConnection.addStream(this.stream);
-    this.peerConnection.oniceconnectionstatechange = function (ev) {
-        this.iceConnectionState = this.peerConnection.iceConnectionState;
-        if (this.iceConnectionState == 'failed' || this.iceConnectionState == 'disconnected') {
-            this.answerRef.off('value');
-            this.receiverCandiRef.off('child_added');
-            clearInterval(this.tick);
-            this.tick = null;
-            this.emit("disconnected");
-        }
-        if (this.iceConnectionState == 'connected') {
-            this.emit('connected');
-        }
+module.exports = Sender;
+Sender.prototype.close = function () {
+  this.stream = null;
+  if (this.PeerConnection) {
+    this._destroyPeerConnection();
+  }
+}
+Sender.prototype._connect = function () {
+  if (this.peerConnection != null) {
+    //this is a reconnect
+    this._destroyPeerConnection();
+  }
+  //cleanup
+  this.ref.remove();
+  this._initPeerConnection(this.stream,
+    (function () {
+      this.state = 'connected';
+      this.emit('connected');
+    }).bind(this),
+    (function () {
+      if (this.stream != null && this.rc < Sender.RECONNECT_MAX) {
+        //reconnect change state to 
+        this.rc += 1;
+        this.state = 'connecting';
+      }
+      else {
+        //emit disconnect event
+        this.state = 'disconnected';
+        this._destroyPeerConnection();
 
-    }.bind(this);
-    this.peerConnection.onnegotiationneeded = function (ev) {
-        this.sendOffer_(function (err) {
-            this.answerRef.on('value', this.answerCb_, this);
-        }.bind(this));
-    }.bind(this);
-    this.bufferedNewCandidate = {};
-    this.peerConnection.onicecandidate = function (ev) {
-        if (ev.candidate == null) {
-            return;
-        }
-        var data = JSON.stringify(ev.candidate);
-
-        var ref = this.senderCandiRef.push();
-        var key = ref.key();
-        this.bufferedNewCandidate[key] = data;
-
-    }.bind(this);
-    this.ref.onDisconnect().remove();
-    this.tick = setInterval(function () {
-        if (Object.keys(this.bufferedNewCandidate).length > 0) {
-            this.senderCandiRef.update(this.bufferedNewCandidate);
-            this.bufferedNewCandidate = {};
-        }
-    }.bind(this), 1000);      
+      }
+    }).bind(this),
+    (function (ev) {
+      //send offer
+      console.log('send offer')
+      this.sendOffer_(function (err) {
+        this.answerRef.on('value', this.answerCb_, this);
+      }.bind(this));
+    }).bind(this),
+    (function (ev) {
+      if (ev.candidate == null) {
+        return;
+      }
+      var data = JSON.stringify(ev.candidate);
+      this.senderCandiRef.push(data);
+    }).bind(this));
 
 }
-
-Sender.prototype.answerCb_ = function (snapshot) {
-    var answer = snapshot.val();
-    if (answer != null /*&& this.signalingState == 'have-local-offer'*/) {
-        this.lastAnswer = answer;
-        var desc = new RTCSessionDescription(JSON.parse(answer));
-        this.peerConnection.setRemoteDescription(desc, function () {
-            //listen to candidate
-            this.receiverCandiRef.on("child_added", this.candidateCb_, this);
-        }.bind(this), function (err) {
-            console.error(err);
-        });
+Sender.prototype._initPeerConnection = function (stream ,_onReady, _onDisconnect, _onNegotitionNeeded, _onIceCandidate) {
+  var onDisconnect = _onDisconnect;
+  var onReady = _onReady;
+  this.currentRef = this.ref.push();
+  this.offerRef = this.currentRef.child("offer");
+  this.answerRef = this.currentRef.child("answer");
+  this.senderCandiRef = this.currentRef.child("senderCandi");
+  this.receiverCandiRef = this.currentRef.child("receiverCandi");
+  this.peerConnection = new RTCPeerConnection(this.config);
+  this.iceConnectionState = this.peerConnection.iceConnectionState;
+  this.peerConnection.oniceconnectionstatechange = function (ev) {
+    this.iceConnectionState = this.peerConnection.iceConnectionState;
+    if (this.iceConnectionState == 'failed' || this.iceConnectionState == 'disconnected') {
+      if(onDisconnect){
+        onDisconnect();
+        onDisconnect = null;
+      }
     }
+    if (this.iceConnectionState == 'connected') {
+      if(onReady){
+        onReady();
+        onReady = null;
+      }
+    }
+  }.bind(this);
+  //this.peerConnection.onnegotiationneeded = _onNegotitionNeeded;
+  this.peerConnection.onnegotiationneeded = function(ev) {
+    _onNegotitionNeeded(ev);
+  }.bind(this);
+  this.peerConnection.onicecandidate = _onIceCandidate;
+  this.peerConnection.addStream(stream);
+}
+Sender.prototype._destroyPeerConnection = function () {
+  if (this.peerConnection == null) {
+    //already destroyed
+    return;
+  }
+  try {
+    this.peerConnection.close()
+  } catch (e) {
+    //do nothing
+  }
+  this.anwserRef.off('value');
+  this.receiverCandiRef.off('child_added');
+  this.currentRef = null;
+  this.offerRef = null;
+  this.answerRef = null;
+  this.senderCandiRef = null;
+  this.receiverCandiRef = null;
+  //init webRTCPeerConnection
+  this.peerConnection = null;
+  this.iceConnectionState = null;
+}
+Sender.prototype.answerCb_ = function (snapshot) {
+  var answer = snapshot.val();
+  if (answer != null /*&& this.signalingState == 'have-local-offer'*/) {
+    this.lastAnswer = answer;
+    var desc = new RTCSessionDescription(JSON.parse(answer));
+    this.peerConnection.setRemoteDescription(desc, function () {
+      //listen to candidate
+      this.receiverCandiRef.on("child_added", this.candidateCb_, this);
+    }.bind(this), function (err) {
+      console.error(err);
+    });
+  }
 }
 Sender.prototype.candidateCb_ = function (snap) {
-    var sdp = JSON.parse(snap.val());
-    if (sdp != null) {
-        var candidate = new RTCIceCandidate(sdp);
-        this.peerConnection.addIceCandidate(candidate, function () {
-        }, function (err) {
-            if (err)
-                console.error(err);
-        })
-    }
+  var sdp = JSON.parse(snap.val());
+  if (sdp != null) {
+    var candidate = new RTCIceCandidate(sdp);
+    this.peerConnection.addIceCandidate(candidate, function () {
+    }, function (err) {
+      if (err)
+        console.error(err);
+    })
+  }
 }
 Sender.prototype.sendOffer_ = function (cb) {
-    this.peerConnection.createOffer(function (desc) {
-        this.peerConnection.setLocalDescription(desc, function () {
-            this.offerRef
-                .set(JSON.stringify(desc), function (err) {
-                    if (err) {
-                        cb(err);
-                    }
-                    else {
-                        cb(null);
-                    }
-                }.bind(this));
-        }.bind(this), function (err) {
-            cb(err)
-        });
+  this.peerConnection.createOffer(function (desc) {
+    this.peerConnection.setLocalDescription(desc, function () {
+      this.offerRef
+        .set(JSON.stringify(desc), function (err) {
+          if (err) {
+            cb(err);
+          }
+          else {
+            cb(null);
+          }
+        }.bind(this));
     }.bind(this), function (err) {
-        cb(err);
-    })
+      cb(err)
+    });
+  }.bind(this), function (err) {
+    cb(err);
+  })
 }
 
-Sender.prototype.close = function () {
-    this.peerConnection.close();
-}
 
 }).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/sender.js","/")
 },{"buffer":3,"g5I+bs":5,"webrtc-adapter":6,"wildemitter":12}]},{},[1])
