@@ -2,15 +2,359 @@
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 var WildEmitter = require("wildemitter");
 var adapter = require('webrtc-adapter');
-module.exports = {};
+
+
+var WildRTC = function (ref, config) {
+  this.peerConnection = null;
+  this.ref = ref;
+  this.config = config;
+  this.state = 'connecting';
+  this.to = 'server';// TODO 
+  this.sender = null;
+  this.receivers = {};//只有1个sender 有多个receiver
+
+}
+WildEmitter.mixin(WildRTC);
+module.exports = WildRTC;
+
+WildRTC.prototype.init = function (callback) {
+  this.sessionId = this.ref.push().key();
+  this.ref.push();
+
+  this.sendJoin(this.sessionId, true);
+  this.ref.limitToLast(10).on('child_added', function (snap) {
+    var value = snap.val();
+    if (value.to == this.sessionId) {
+      // this is sender message
+      if (value.type == 'join-success' && !!this.joined == false) {
+        this.joined = true;    
+        //keep alive
+        this.aliveTick = setInterval(function () {
+          this.sendKeepAlive(this.sessionId);
+        }.bind(this), 30000);
+        if (callback) {
+          callback(this.sessionId);
+          callback = null;
+        }
+      }
+      else if (value.type == 'answer') {
+        var answer = JSON.parse(value.answer);
+        this.answerCb(this.sender, answer);
+      }
+      else if (value.type == 'candi') {
+        var candi = JSON.parse(value.candi);
+        this.candidateCb(this.sender, candi);
+      }
+      else if (value.type == 'new-publisher') {
+        //new receiver session_id:
+        var senderId = value.sender_id;
+        this.emit('user_added', senderId);
+      }
+    } else if (this.receivers[value.to] != null) {
+      var receiverInfo = this.receivers[value.to];
+      if (receiverInfo == null) {
+        return;
+      }
+      if (value.type == 'join-success') {
+        console.log('receiver joined:', receiverInfo.sender_id);
+        receiverInfo.tick = setInterval(function () {
+          this.sendKeepAlive(receiverInfo.session_id);
+        }.bind(this), 30000);
+        if (callback) {
+          callback();
+          callback = null;
+        }
+      }
+      if (value.type == 'offer') {
+        this.offerCb(receiverInfo, value.sdp);
+      }
+      else if (value.type == 'candi') {
+        // TODO
+      }
+
+    }
+  }.bind(this));
+}
+
+WildRTC.prototype.publish = function (stream,callback) {
+  var _cb = callback;
+  if (this.sender != null) {
+    throw new Error('you can only publish 1 stream');
+  }
+  if (!!this.joined == false) {
+    throw new Error("not joined");
+  }
+  
+  //send offer
+  this.sender = new RTCPeerConnection(this.config);
+
+  this._initPeerConnection(
+    this.sender,
+    stream,
+    null,
+    function onReady() {
+      this.state = 'connected';
+      if(_cb != null){
+        _cb(null);
+        _cb = null;  
+      }
+      callback(null);
+      this.emit('connected');
+    }.bind(this),
+    function onDisconnect() {
+      this.state = 'disconnected';
+      this.close();
+      this.emit('disconnected');
+    }.bind(this),
+    function onNegotitionNeeded() {
+      this.sendOffer(this.sender);
+    }.bind(this),
+    function _onIceCandidate(ev) {
+      if (ev.candidate == null) {
+        return;
+      }
+      var candi = ev.candidate;
+      this.sendCandi(this.sessionId, true, candi);
+      clearTimeout(this.candiTick);
+      this.candiTick = setTimeout(function () {
+        this.sendCandiComplete(this.sessionId, true);
+        this.sendKeepAlive(this.sessionId);
+      }.bind(this), 1000);
+    }.bind(this)
+    );
+}
+
+WildRTC.prototype.acceptStream = function (senderId, callback) {
+  if (this.receivers[sessionId] != null) {
+    callback(new Error("stream has been accepted:", sessionId));
+  }
+  var receiver = new RTCPeerConnection();
+  var sessionId = this.ref.push().key()
+  this.receivers[sessionId] = {
+    receiver: receiver,
+    sender_id: senderId,
+    session_id: sessionId,
+  };
+  this._initPeerConnection(
+    receiver,
+    null,
+    function onAddStream(ev) {
+      callback(ev.stream);
+    }.bind(this),
+    function onReady() {
+      // console.log('receiver' + senderId + 'ready');
+    }.bind(this),
+    function onDisconnect() {
+      //console.log('disconnect from ' + senderId);
+      //stop ping
+      var sessionInfo = this.receivers[sessionId]
+      if (sessionInfo.tick != null) {
+        clearInterval(sessionInfo.tick);
+        sessionInfo.tick = null;
+      }
+      try {
+        sessionInfo.receiver.close()
+      } catch (e) {
+        //TODO
+      }
+      delete this.receivers[sessionId];
+      //remove
+      this.emit('stream_removed', senderId);
+    }.bind(this),
+    function onNegotitionNeeded() {
+      //TODO 
+    }.bind(this),
+    function _onIceCandidate(ev) {
+      if (ev.candidate == null) {
+        return;
+      }
+      var candi = ev.candidate;
+      this.sendCandi(sessionId, false, candi);
+      clearTimeout(this.candiTick);
+      this.candiTick = setTimeout(function () {
+        this.sendCandiComplete(sessionId);
+        this.sendKeepAlive(sessionId);
+      }.bind(this), 1000);
+    }.bind(this));
+  //send join listener
+  this.sendJoin(sessionId, false, senderId);
+}
+
+WildRTC.prototype.close = function () {
+  clearInterval(this.aliveTick);
+  clearInterval(this.candiTick);
+  
+  try {
+    this.sender.close()
+  }
+  catch (e) {
+    //TODO
+  }
+  this.sender = null;
+}
+
+WildRTC.prototype._initPeerConnection = function (pc, stream, onAddStream, _onReady, _onDisconnect, _onNegotitionNeeded, _onIceCandidate) {
+  var onDisconnect = _onDisconnect;
+  var onReady = _onReady;
+  pc.oniceconnectionstatechange = function (ev) {
+    if (pc == null) {
+      return;
+    }
+    if (pc.iceConnectionState == 'failed' || pc.iceConnectionState == 'disconnected') {
+      if (onDisconnect) {
+        onDisconnect();
+        onDisconnect = null;
+      }
+    }
+    if (pc.iceConnectionState == 'connected') {
+      if (onReady) {
+        onReady();
+        onReady = null;
+      }
+    }
+  }.bind(this);
+  pc.onnegotiationneeded = function (ev) {
+    _onNegotitionNeeded(ev);
+  }.bind(this);
+  pc.onicecandidate = _onIceCandidate;
+  if (stream) {
+    pc.addStream(stream);
+  }
+  else if (onAddStream) {
+    pc.onaddstream = onAddStream;
+  }
+}
+
+
+WildRTC.prototype.sendJoin = function (sessionId, isPublisher, senderId) {
+  var data = {
+    'from': sessionId,
+    'to': this.to,
+    'ptype': 'publisher',
+    'type': 'join'
+  }
+  if (!!isPublisher == false) {
+    data.ptype = 'listener';
+    data.listen_to = senderId;
+  }
+  this.ref.push(data);
+}
+WildRTC.prototype.answerCb = function (pc, answer) {
+  if (answer != null /*&& this.signalingState == 'have-local-offer'*/) {
+    this.lastAnswer = answer;
+    var desc = new RTCSessionDescription(answer);
+    pc.setRemoteDescription(desc, function () { });
+  }
+}
+WildRTC.prototype.offerCb = function (pcInfo, offer) {
+  var pc = pcInfo.receiver
+  //回answer 并且set remoteref
+  var desc = new RTCSessionDescription(JSON.parse(offer));
+  pc.setRemoteDescription(desc, function () {
+    this.sendAnswer(pcInfo, function (err) {
+      if (err) {
+        console.error(err);
+      }
+    });
+    //listen to candidate
+  }.bind(this), function (err) {
+    console.error(err);
+
+  });
+
+}
+WildRTC.prototype.candidateCb = function (pc, sdp) {
+  if (sdp != null) {
+    var candidate = new RTCIceCandidate(sdp);
+    pc.addIceCandidate(candidate, function () {
+    }, function (err) {
+      if (err)
+        console.error(err);
+    })
+  }
+}
+WildRTC.prototype.sendOffer = function (pc, cb) {
+  pc.createOffer(function (desc) {
+    pc.setLocalDescription(desc, function () {
+      var data = {
+        from: this.sessionId,
+        to: this.to,
+        type: 'offer',
+        offer: JSON.stringify(desc)
+      }
+      this.ref.push(data);
+    }.bind(this), function (err) {
+      cb(err)
+    });
+  }.bind(this), function (err) {
+    cb(err);
+  })
+}
+WildRTC.prototype.sendAnswer = function (pcInfo, cb) {
+  var pc = pcInfo.receiver;
+  var sessionId = pcInfo.session_id;
+  pc.createAnswer(function (desc) {
+    pc.setLocalDescription(desc, function () {
+      var data = {
+        from: sessionId,
+        to: this.to,
+        type: 'answer',
+        answer: JSON.stringify(desc)
+      }
+      this.ref.push(data);
+    }.bind(this), function (err) {
+      cb(err);
+    });
+  }.bind(this), function (err) {
+    cb(err);
+  })
+}
+WildRTC.prototype.sendCandi = function (sessionId, ispublisher, candi) {
+  var data = {
+    from: sessionId,
+    to: this.to,
+    ptype: 'listener',
+    type: 'candi',
+    candi: JSON.stringify(candi)
+  }
+  if (!!ispublisher) {
+    data.ptype = 'publisher';
+  }
+  this.ref.push(data);
+}
+
+WildRTC.prototype.sendCandiComplete = function (sessionId, ispublisher) {
+  var data = {
+    from: this.sessionId,
+    to: this.to,
+    ptype: 'listener',
+    type: 'candi-complete'
+  }
+  if (!!ispublisher) {
+    data.ptype = 'publisher';
+  }
+  this.ref.push(data);
+}
+WildRTC.prototype.sendKeepAlive = function (sessionId) {
+  var data = {
+    from: sessionId,
+    to: this.to,
+    type: 'keep-alive'
+  }
+  this.ref.push(data);
+} 
+
+
+}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/WildRTC.js","/")
+},{"buffer":4,"g5I+bs":6,"webrtc-adapter":7,"wildemitter":13}],2:[function(require,module,exports){
+(function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
+var WildEmitter = require("wildemitter");
+var adapter = require('webrtc-adapter');
+module.exports = require('./WildRTC');
 if (window)
-    window.WildPeerConnection = module.exports;
-var sender = require('./sender');
-var receiver = require('./receiver');
-module.exports.Sender = sender;
-module.exports.Receiver = receiver;
-}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_63203e70.js","/")
-},{"./receiver":13,"./sender":14,"buffer":3,"g5I+bs":5,"webrtc-adapter":6,"wildemitter":12}],2:[function(require,module,exports){
+  window.WildRTC = module.exports;
+}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_b946d0e7.js","/")
+},{"./WildRTC":1,"buffer":4,"g5I+bs":6,"webrtc-adapter":7,"wildemitter":13}],3:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
@@ -138,7 +482,7 @@ var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 }(typeof exports === 'undefined' ? (this.base64js = {}) : exports))
 
 }).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/node_modules/base64-js/lib/b64.js","/node_modules/base64-js/lib")
-},{"buffer":3,"g5I+bs":5}],3:[function(require,module,exports){
+},{"buffer":4,"g5I+bs":6}],4:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /*!
  * The buffer module from node.js, for the browser.
@@ -1251,7 +1595,7 @@ function assert (test, message) {
 }
 
 }).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/node_modules/buffer/index.js","/node_modules/buffer")
-},{"base64-js":2,"buffer":3,"g5I+bs":5,"ieee754":4}],4:[function(require,module,exports){
+},{"base64-js":3,"buffer":4,"g5I+bs":6,"ieee754":5}],5:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   var e, m
@@ -1339,7 +1683,7 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
 }
 
 }).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/node_modules/ieee754/index.js","/node_modules/ieee754")
-},{"buffer":3,"g5I+bs":5}],5:[function(require,module,exports){
+},{"buffer":4,"g5I+bs":6}],6:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 // shim for using process in browser
 
@@ -1406,7 +1750,7 @@ process.chdir = function (dir) {
 };
 
 }).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/node_modules/process/browser.js","/node_modules/process")
-},{"buffer":3,"g5I+bs":5}],6:[function(require,module,exports){
+},{"buffer":4,"g5I+bs":6}],7:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /*
  *  Copyright (c) 2016 The WebRTC project authors. All Rights Reserved.
@@ -1493,7 +1837,7 @@ process.chdir = function (dir) {
 })();
 
 }).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/node_modules/webrtc-adapter/src/js/adapter_core.js","/node_modules/webrtc-adapter/src/js")
-},{"./chrome/chrome_shim":7,"./edge/edge_shim":9,"./firefox/firefox_shim":10,"./utils":11,"buffer":3,"g5I+bs":5}],7:[function(require,module,exports){
+},{"./chrome/chrome_shim":8,"./edge/edge_shim":10,"./firefox/firefox_shim":11,"./utils":12,"buffer":4,"g5I+bs":6}],8:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /*
  *  Copyright (c) 2016 The WebRTC project authors. All Rights Reserved.
@@ -1858,7 +2202,7 @@ module.exports = {
 };
 
 }).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/node_modules/webrtc-adapter/src/js/chrome/chrome_shim.js","/node_modules/webrtc-adapter/src/js/chrome")
-},{"../utils.js":11,"buffer":3,"g5I+bs":5}],8:[function(require,module,exports){
+},{"../utils.js":12,"buffer":4,"g5I+bs":6}],9:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /*
  *  Copyright (c) 2016 The WebRTC project authors. All Rights Reserved.
@@ -2248,7 +2592,7 @@ SDPUtils.getDirection = function(mediaSection, sessionpart) {
 module.exports = SDPUtils;
 
 }).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/node_modules/webrtc-adapter/src/js/edge/edge_sdp.js","/node_modules/webrtc-adapter/src/js/edge")
-},{"buffer":3,"g5I+bs":5}],9:[function(require,module,exports){
+},{"buffer":4,"g5I+bs":6}],10:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /*
  *  Copyright (c) 2016 The WebRTC project authors. All Rights Reserved.
@@ -3058,7 +3402,7 @@ module.exports = {
 
 
 }).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/node_modules/webrtc-adapter/src/js/edge/edge_shim.js","/node_modules/webrtc-adapter/src/js/edge")
-},{"../utils":11,"./edge_sdp":8,"buffer":3,"g5I+bs":5}],10:[function(require,module,exports){
+},{"../utils":12,"./edge_sdp":9,"buffer":4,"g5I+bs":6}],11:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /*
  *  Copyright (c) 2016 The WebRTC project authors. All Rights Reserved.
@@ -3293,7 +3637,7 @@ module.exports = {
 }
 
 }).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/node_modules/webrtc-adapter/src/js/firefox/firefox_shim.js","/node_modules/webrtc-adapter/src/js/firefox")
-},{"../utils":11,"buffer":3,"g5I+bs":5}],11:[function(require,module,exports){
+},{"../utils":12,"buffer":4,"g5I+bs":6}],12:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /*
  *  Copyright (c) 2016 The WebRTC project authors. All Rights Reserved.
@@ -3400,7 +3744,7 @@ module.exports = {
 };
 
 }).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/node_modules/webrtc-adapter/src/js/utils.js","/node_modules/webrtc-adapter/src/js")
-},{"buffer":3,"g5I+bs":5}],12:[function(require,module,exports){
+},{"buffer":4,"g5I+bs":6}],13:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /*
 WildEmitter.js is a slim little event emitter by @henrikjoreteg largely based
@@ -3557,336 +3901,4 @@ WildEmitter.mixin = function (constructor) {
 WildEmitter.mixin(WildEmitter);
 
 }).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/node_modules/wildemitter/wildemitter.js","/node_modules/wildemitter")
-},{"buffer":3,"g5I+bs":5}],13:[function(require,module,exports){
-(function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
-var WildEmitter = require("wildemitter");
-var adapter = require('webrtc-adapter');
-
-
-var Receiver = function (ref, onStream, config) {
-  this.peerConnection = null;
-  this.ref = ref;
-  this.onStream = onStream;
-  this.config = config;
-  this.state = 'connecting';
-  this._init();
-
-}
-WildEmitter.mixin(Receiver);
-module.exports = Receiver;
-Receiver.prototype._init = function () {
-
-  this.ref.limitToLast(1).on('child_added', function (snapshot) {
-    if (this.peerConnection != null) {
-      this._destroyPeerConnection();
-    }
-    if (snapshot.child('answer').val() == null)
-      this._initPeerConnection(snapshot.ref(),
-        (function () {
-          //onReady
-          //do nothing
-          this.state = 'connected'
-        }).bind(this),
-        (function () {
-          //onDisconnect
-          this.state = 'connecting';
-          //do noting wait for sender to reconnect
-        }).bind(this),
-        (function (ev) {
-          //onIceCandidate
-          if (ev.candidate == null) {
-            return;
-          }
-          var data = JSON.stringify(ev.candidate);
-          this.receiverCandiRef.push(data);
-        }).bind(this),
-        (function (snapshot) {
-          //onRemoteOffer
-          this.offerCb_(snapshot);
-        }).bind(this),
-        (function (ev) {
-          this.onStream(ev.stream);
-        }).bind(this));
-  }.bind(this));
-}
-Receiver.prototype._initPeerConnection = function (ref, _onReady, _onDisconnect, _onIceCandidate, _onRemoteOffer, _onStreamAdd) {
-  var onDisconnect = _onDisconnect;
-  var onReady = _onReady;
-  this.currentRef = ref;
-  this.offerRef = this.currentRef.child("offer");
-  this.answerRef = this.currentRef.child("answer");
-  this.senderCandiRef = this.currentRef.child("senderCandi");
-  this.receiverCandiRef = this.currentRef.child("receiverCandi");
-  this.peerConnection = new RTCPeerConnection(this.config);
-  this.iceConnectionState = this.peerConnection.iceConnectionState;
-  this.peerConnection.oniceconnectionstatechange = function (ev) {
-    this.iceConnectionState = this.peerConnection.iceConnectionState;
-    if (this.iceConnectionState == 'failed' || this.iceConnectionState == 'disconnected') {
-
-      if (onDisconnect) {
-        onDisconnect();
-        onDisconnect = null;
-      }
-    }
-    if (this.iceConnectionState == 'connected') {
-      if (onReady) {
-        onReady();
-        onReady = null;
-      }
-    }
-  }.bind(this);
-  this.peerConnection.onicecandidate = _onIceCandidate;
-  this.offerRef.on('value', _onRemoteOffer, this);
-  this.peerConnection.onaddstream = _onStreamAdd;
-}
-Receiver.prototype._destroyPeerConnection = function () {
-
-  if (this.peerConnection == null) {
-    //already destroyed
-    return;
-  }
-  try {
-    this.peerConnection.close()
-  } catch (e) {
-    //do nothing
-  }
-  this.offerRef.off('value');
-  this.senderCandiRef.off('child_added');
-  this.currentRef = null;
-  this.offerRef = null;
-  this.answerRef = null;
-  this.senderCandiRef = null;
-  this.receiverCandiRef = null;
-  //init webRTCPeerConnection
-  this.peerConnection = null;
-  this.iceConnectionState = null;
-}
-
-Receiver.prototype.close = function () {
-  this._destroyPeerConnection()
-}
-
-Receiver.prototype.candidateCb_ = function (snap) {
-  var sdp = JSON.parse(snap.val());
-  if (sdp != null) {
-    var candidate = new RTCIceCandidate(sdp);
-    this.peerConnection.addIceCandidate(candidate, function () {
-    }, function (err) {
-      if (err)
-        console.error(err);
-    })
-  }
-}
-
-Receiver.prototype.sendAnswer_ = function (cb) {
-  this.peerConnection.createAnswer(function (desc) {
-    this.peerConnection.setLocalDescription(desc, function () {
-      this.answerRef.set(JSON.stringify(desc), function (err) {
-        if (err) {
-          cb(err);
-        }
-        else {
-          cb(null);
-        }
-      });
-    }.bind(this), function (err) {
-      cb(err);
-    });
-  }.bind(this), function (err) {
-    cb(err);
-  })
-}
-Receiver.prototype.offerCb_ = function (snapshot) {
-  var offer = snapshot.val();
-  if (offer == null) {
-    return;
-  }
-  //回answer 并且set remoteref
-  var desc = new RTCSessionDescription(JSON.parse(offer));
-
-  this.peerConnection.setRemoteDescription(desc, function () {
-    this.sendAnswer_(function (err) {
-      if (err) {
-        console.error(err);
-      }
-    });
-    //listen to candidate
-    this.senderCandiRef.on("child_added", this.candidateCb_, this);
-  }.bind(this), function (err) {
-    console.error(err);
-
-  });
-
-  // }
-}
-
-Receiver.prototype.close = function () {
-  this.peerConnection.close();
-}
-
-}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/receiver.js","/")
-},{"buffer":3,"g5I+bs":5,"webrtc-adapter":6,"wildemitter":12}],14:[function(require,module,exports){
-(function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
-var WildEmitter = require("wildemitter");
-var adapter = require('webrtc-adapter');
-
-
-var Sender = function (ref, stream, config) {
-  this.peerConnection = null;
-  this.ref = ref;
-  this.stream = stream;
-  this.config = config ;
-  this.rc = 0;//重试次数
-  this.state = 'connecting';
-  this._connect();
-}
-Sender.RECONNECT_MAX = 10;
-WildEmitter.mixin(Sender);
-module.exports = Sender;
-Sender.prototype.close = function () {
-  this.stream = null;
-  if (this.PeerConnection) {
-    this._destroyPeerConnection();
-  }
-}
-Sender.prototype._connect = function () {
-  if (this.peerConnection != null) {
-    //this is a reconnect
-    this._destroyPeerConnection();
-  }
-  //cleanup
-  this.ref.remove();
-  this._initPeerConnection(this.stream,
-    (function () {
-      this.state = 'connected';
-      this.emit('connected');
-    }).bind(this),
-    (function () {
-      if (this.stream != null && this.rc < Sender.RECONNECT_MAX) {
-        //reconnect change state to 
-        this.rc += 1;
-        this.state = 'connecting';
-      }
-      else {
-        //emit disconnect event
-        this.state = 'disconnected';
-        this._destroyPeerConnection();
-
-      }
-    }).bind(this),
-    (function (ev) {
-      //send offer
-      console.log('send offer')
-      this.sendOffer_(function (err) {
-        this.answerRef.on('value', this.answerCb_, this);
-      }.bind(this));
-    }).bind(this),
-    (function (ev) {
-      if (ev.candidate == null) {
-        return;
-      }
-      var data = JSON.stringify(ev.candidate);
-      this.senderCandiRef.push(data);
-    }).bind(this));
-
-}
-Sender.prototype._initPeerConnection = function (stream ,_onReady, _onDisconnect, _onNegotitionNeeded, _onIceCandidate) {
-  var onDisconnect = _onDisconnect;
-  var onReady = _onReady;
-  this.currentRef = this.ref.push();
-  this.offerRef = this.currentRef.child("offer");
-  this.answerRef = this.currentRef.child("answer");
-  this.senderCandiRef = this.currentRef.child("senderCandi");
-  this.receiverCandiRef = this.currentRef.child("receiverCandi");
-  this.peerConnection = new RTCPeerConnection(this.config);
-  this.iceConnectionState = this.peerConnection.iceConnectionState;
-  this.peerConnection.oniceconnectionstatechange = function (ev) {
-    this.iceConnectionState = this.peerConnection.iceConnectionState;
-    if (this.iceConnectionState == 'failed' || this.iceConnectionState == 'disconnected') {
-      if(onDisconnect){
-        onDisconnect();
-        onDisconnect = null;
-      }
-    }
-    if (this.iceConnectionState == 'connected') {
-      if(onReady){
-        onReady();
-        onReady = null;
-      }
-    }
-  }.bind(this);
-  //this.peerConnection.onnegotiationneeded = _onNegotitionNeeded;
-  this.peerConnection.onnegotiationneeded = function(ev) {
-    _onNegotitionNeeded(ev);
-  }.bind(this);
-  this.peerConnection.onicecandidate = _onIceCandidate;
-  this.peerConnection.addStream(stream);
-}
-Sender.prototype._destroyPeerConnection = function () {
-  if (this.peerConnection == null) {
-    //already destroyed
-    return;
-  }
-  try {
-    this.peerConnection.close()
-  } catch (e) {
-    //do nothing
-  }
-  this.anwserRef.off('value');
-  this.receiverCandiRef.off('child_added');
-  this.currentRef = null;
-  this.offerRef = null;
-  this.answerRef = null;
-  this.senderCandiRef = null;
-  this.receiverCandiRef = null;
-  //init webRTCPeerConnection
-  this.peerConnection = null;
-  this.iceConnectionState = null;
-}
-Sender.prototype.answerCb_ = function (snapshot) {
-  var answer = snapshot.val();
-  if (answer != null /*&& this.signalingState == 'have-local-offer'*/) {
-    this.lastAnswer = answer;
-    var desc = new RTCSessionDescription(JSON.parse(answer));
-    this.peerConnection.setRemoteDescription(desc, function () {
-      //listen to candidate
-      this.receiverCandiRef.on("child_added", this.candidateCb_, this);
-    }.bind(this), function (err) {
-      console.error(err);
-    });
-  }
-}
-Sender.prototype.candidateCb_ = function (snap) {
-  var sdp = JSON.parse(snap.val());
-  if (sdp != null) {
-    var candidate = new RTCIceCandidate(sdp);
-    this.peerConnection.addIceCandidate(candidate, function () {
-    }, function (err) {
-      if (err)
-        console.error(err);
-    })
-  }
-}
-Sender.prototype.sendOffer_ = function (cb) {
-  this.peerConnection.createOffer(function (desc) {
-    this.peerConnection.setLocalDescription(desc, function () {
-      this.offerRef
-        .set(JSON.stringify(desc), function (err) {
-          if (err) {
-            cb(err);
-          }
-          else {
-            cb(null);
-          }
-        }.bind(this));
-    }.bind(this), function (err) {
-      cb(err)
-    });
-  }.bind(this), function (err) {
-    cb(err);
-  })
-}
-
-
-}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/sender.js","/")
-},{"buffer":3,"g5I+bs":5,"webrtc-adapter":6,"wildemitter":12}]},{},[1])
+},{"buffer":4,"g5I+bs":6}]},{},[2])

@@ -2,7 +2,7 @@ var gulp = require('gulp');
 var browserify = require('gulp-browserify');
 var rename = require('gulp-rename');
 // Basic usage 
-gulp.task('script', function() {
+gulp.task('build', function() {
 	// Single entry point to browserify 
 	gulp.src('index.js')
 		.pipe(browserify({
@@ -10,16 +10,15 @@ gulp.task('script', function() {
 		  debug : false
           
 		}))
-        .pipe(rename("wild-peerconnection.js"))
+        .pipe(rename("wild-rtc.js"))
 		.pipe(gulp.dest('./'))
 });
 
 var connect = require('gulp-connect');
  
-gulp.task('serve', function() {
+gulp.task('serve',['build'], function() {
   connect.server({
     root: './',
-    livereload: true,
-    fallback:"test/simpleRTC.html"
+    livereload: true
   });
 });

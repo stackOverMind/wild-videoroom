@@ -1,14 +1,14 @@
 {
-  "name": "wild-peerconnection",
-  "version": "1.1.0",
-  "description": "RpcPeerConnection with wilddog",
+  "name": "wild-janus-videoroom",
+  "version": "0.0.1",
+  "description": "video room with wilddog",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/stackOverMind/wild-peerconnection.git"
+    "url": "git+https://github.com/stackOverMind/wild-videoroom.git"
   },
   "keywords": [
     "realtime",
@@ -18,9 +18,9 @@
   "author": "jackxy",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/stackOverMind/wild-peerconnection/issues"
+    "url": "https://github.com/stackOverMind/wild-videoroom/issues"
   },
-  "homepage": "https://github.com/stackOverMind/wild-peerconnection#readme",
+  "homepage": "https://github.com/stackOverMind/wild-videoroom#readme",
   "dependencies": {
     "webrtc-adapter": "^1.0.4",
     "wildemitter": "^1.2.0"

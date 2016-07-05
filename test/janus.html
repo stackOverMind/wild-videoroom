@@ -1,0 +1,64 @@
+<html>
+<title>
+  simple webrtc demo
+</title>
+
+<body>
+  <label>room id:</label>
+  <input id="roomid" />
+  <button id="confirm">confirm</button>
+  <div>
+    <video id="remote-view" autoplay muted></video>
+    <video id="remote-view" autoplay muted></video>
+    <video id="remote-view" autoplay muted></video>
+    <video id="remote-view" autoplay muted></video>
+  </div>
+  <script src="https://cdn.wilddog.com/sdk/js/current/wilddog.js"></script>
+  <script src="../wild-rtc.js"></script>
+  <script>
+    var localView = document.getElementById("self-view");
+        var remoteView = document.getElementById("remote-view");
+        var confirmBtn = document.getElementById("confirm")
+        var ref = new Wilddog("https://test123.wilddogio.com/janus-session/rooms/");
+
+        var wildrtc = null;
+        var currentStream = null;
+        confirmBtn.onclick = function(){
+          var roomId = Number.parseInt(document.querySelector('#roomid').value);
+           if(roomId>1000000){
+             throw new Error("roomid is to large");
+           }
+           wildrtc = new WildRTC(ref.child(''+roomId));
+           wildrtc.init(function(sessionId){
+             console.log('my sessionId is',sessionId);
+             navigator.getUserMedia({"video": true},function(stream){
+               console.log('stream publishing to server');
+                wildrtc.publish(stream,function(err){
+                  if(err == null){
+                    console.log('stream published to server ...')
+                  }
+                });
+            },function(err){
+                console.log(err)
+            }); 
+             
+           });
+           var index = 0;
+           wildrtc.on('user_added',function(sessionId){
+             wildrtc.acceptStream(sessionId,function(stream){ 
+              document.querySelectorAll('video')[index].src = URL.createObjectURL(stream);
+              index += 1;
+             });
+           });
+           wildrtc.on('stream_removed',function(sessionId){
+             console.log('stream_removed',sessionId);
+           });
+           wildrtc.on('disconnected',function(){
+             console.log('disconnected');
+           });
+        }
+  </script>
+</body>
+
+
+</html>
