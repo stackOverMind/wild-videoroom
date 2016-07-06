@@ -12,7 +12,7 @@ var WildRTC = function (ref, config) {
   this.to = 'server';// TODO 
   this.sender = null;
   this.receivers = {};//只有1个sender 有多个receiver
-
+  this.knownPublishers = {};
 }
 WildEmitter.mixin(WildRTC);
 module.exports = WildRTC;
@@ -24,7 +24,7 @@ WildRTC.prototype.init = function (callback) {
   this.sendJoin(this.sessionId, true);
   this.ref.limitToLast(10).on('child_added', function (snap) {
     var value = snap.val();
-    if (value.to == this.sessionId) {
+    if (value.to == this.sessionId || value.to == '*') {
       // this is sender message
       if (value.type == 'join-success' && !!this.joined == false) {
         this.joined = true;    
@@ -48,7 +48,18 @@ WildRTC.prototype.init = function (callback) {
       else if (value.type == 'new-publisher') {
         //new receiver session_id:
         var senderId = value.sender_id;
-        this.emit('user_added', senderId);
+        if (!this.knownPublishers[senderId]) {
+          this.knownPublishers[senderId] = true;
+          this.emit('user_added', senderId);
+        }
+      }
+      else if (value.type == 'leaving') {
+
+
+      }
+      else if (value.type == 'unpublish') {
+        var _senderId = value.sender_id;
+        this.removeListener(_senderId);
       }
     } else if (this.receivers[value.to] != null) {
       var receiverInfo = this.receivers[value.to];
@@ -76,7 +87,7 @@ WildRTC.prototype.init = function (callback) {
   }.bind(this));
 }
 
-WildRTC.prototype.publish = function (stream,callback) {
+WildRTC.prototype.publish = function (stream, callback) {
   var _cb = callback;
   if (this.sender != null) {
     throw new Error('you can only publish 1 stream');
@@ -94,11 +105,10 @@ WildRTC.prototype.publish = function (stream,callback) {
     null,
     function onReady() {
       this.state = 'connected';
-      if(_cb != null){
+      if (_cb != null) {
         _cb(null);
-        _cb = null;  
+        _cb = null;
       }
-      callback(null);
       this.emit('connected');
     }.bind(this),
     function onDisconnect() {
@@ -123,7 +133,27 @@ WildRTC.prototype.publish = function (stream,callback) {
     }.bind(this)
     );
 }
-
+WildRTC.prototype.removeListener = function (senderId) {
+  var self = this;
+  for (var key in this.receivers) {
+    var value = this.receivers[key];
+    if (value.sender_id == senderId) {
+      var sessionId = value.senssion_id;
+      var sessionInfo = self.receivers[sessionId];
+      if (sessionInfo && sessionInfo.tick != null) {
+        clearInterval(sessionInfo.tick);
+        sessionInfo.tick = null;
+      }
+      try {
+        sessionInfo.receiver.close()
+      } catch (e) {
+        //TODO
+      }
+      delete this.receivers[sessionId];
+      this.emit('stream_removed', senderId);
+    }
+  }
+}
 WildRTC.prototype.acceptStream = function (senderId, callback) {
   if (this.receivers[sessionId] != null) {
     callback(new Error("stream has been accepted:", sessionId));
@@ -142,18 +172,18 @@ WildRTC.prototype.acceptStream = function (senderId, callback) {
       callback(ev.stream);
     }.bind(this),
     function onReady() {
-      // console.log('receiver' + senderId + 'ready');
+      console.log('receiver' + senderId + 'ready');
     }.bind(this),
     function onDisconnect() {
       //console.log('disconnect from ' + senderId);
       //stop ping
       var sessionInfo = this.receivers[sessionId]
-      if (sessionInfo.tick != null) {
+      if (sessionInfo && sessionInfo.tick != null) {
         clearInterval(sessionInfo.tick);
         sessionInfo.tick = null;
       }
       try {
-        sessionInfo.receiver.close()
+        sessionInfo.receiver.close();
       } catch (e) {
         //TODO
       }
@@ -183,7 +213,7 @@ WildRTC.prototype.acceptStream = function (senderId, callback) {
 WildRTC.prototype.close = function () {
   clearInterval(this.aliveTick);
   clearInterval(this.candiTick);
-  
+
   try {
     this.sender.close()
   }
@@ -353,7 +383,7 @@ var adapter = require('webrtc-adapter');
 module.exports = require('./WildRTC');
 if (window)
   window.WildRTC = module.exports;
-}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_b946d0e7.js","/")
+}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_c59c14fc.js","/")
 },{"./WildRTC":1,"buffer":4,"g5I+bs":6,"webrtc-adapter":7,"wildemitter":13}],3:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';

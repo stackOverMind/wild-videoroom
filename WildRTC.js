@@ -22,7 +22,7 @@ WildRTC.prototype.init = function (callback) {
   this.sendJoin(this.sessionId, true);
   this.ref.limitToLast(10).on('child_added', function (snap) {
     var value = snap.val();
-    if (value.to == this.sessionId) {
+    if (value.to == this.sessionId || value.to == '*') {
       // this is sender message
       if (value.type == 'join-success' && !!this.joined == false) {
         this.joined = true;    
@@ -50,6 +50,14 @@ WildRTC.prototype.init = function (callback) {
           this.knownPublishers[senderId] = true;
           this.emit('user_added', senderId);
         }
+      }
+      else if (value.type == 'leaving') {
+
+
+      }
+      else if (value.type == 'unpublish') {
+        var _senderId = value.sender_id;
+        this.removeListener(_senderId);
       }
     } else if (this.receivers[value.to] != null) {
       var receiverInfo = this.receivers[value.to];
@@ -123,7 +131,27 @@ WildRTC.prototype.publish = function (stream, callback) {
     }.bind(this)
     );
 }
-
+WildRTC.prototype.removeListener = function (senderId) {
+  var self = this;
+  for (var key in this.receivers) {
+    var value = this.receivers[key];
+    if (value.sender_id == senderId) {
+      var sessionId = value.senssion_id;
+      var sessionInfo = self.receivers[sessionId];
+      if (sessionInfo && sessionInfo.tick != null) {
+        clearInterval(sessionInfo.tick);
+        sessionInfo.tick = null;
+      }
+      try {
+        sessionInfo.receiver.close()
+      } catch (e) {
+        //TODO
+      }
+      delete this.receivers[sessionId];
+      this.emit('stream_removed', senderId);
+    }
+  }
+}
 WildRTC.prototype.acceptStream = function (senderId, callback) {
   if (this.receivers[sessionId] != null) {
     callback(new Error("stream has been accepted:", sessionId));
@@ -142,18 +170,18 @@ WildRTC.prototype.acceptStream = function (senderId, callback) {
       callback(ev.stream);
     }.bind(this),
     function onReady() {
-      // console.log('receiver' + senderId + 'ready');
+      console.log('receiver' + senderId + 'ready');
     }.bind(this),
     function onDisconnect() {
       //console.log('disconnect from ' + senderId);
       //stop ping
       var sessionInfo = this.receivers[sessionId]
-      if (sessionInfo.tick != null) {
+      if (sessionInfo && sessionInfo.tick != null) {
         clearInterval(sessionInfo.tick);
         sessionInfo.tick = null;
       }
       try {
-        sessionInfo.receiver.close()
+        sessionInfo.receiver.close();
       } catch (e) {
         //TODO
       }
