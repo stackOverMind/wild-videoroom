@@ -3,7 +3,6 @@ var adapter = require('webrtc-adapter');
 
 
 var WildRTC = function (ref, config) {
-  this.peerConnection = null;
   this.ref = ref;
   this.config = config;
   this.state = 'connecting';
@@ -52,7 +51,7 @@ WildRTC.prototype.init = function (callback) {
         }
       }
       else if (value.type == 'leaving') {
-
+        //TODO
 
       }
       else if (value.type == 'unpublish') {
@@ -136,7 +135,7 @@ WildRTC.prototype.removeListener = function (senderId) {
   for (var key in this.receivers) {
     var value = this.receivers[key];
     if (value.sender_id == senderId) {
-      var sessionId = value.senssion_id;
+      var sessionId = value.session_id;
       var sessionInfo = self.receivers[sessionId];
       if (sessionInfo && sessionInfo.tick != null) {
         clearInterval(sessionInfo.tick);
@@ -170,7 +169,7 @@ WildRTC.prototype.acceptStream = function (senderId, callback) {
       callback(ev.stream);
     }.bind(this),
     function onReady() {
-      console.log('receiver' + senderId + 'ready');
+      this.emit('stream_ready', senderId);
     }.bind(this),
     function onDisconnect() {
       //console.log('disconnect from ' + senderId);

@@ -54,7 +54,7 @@ WildRTC.prototype.init = function (callback) {
         }
       }
       else if (value.type == 'leaving') {
-
+        //TODO
 
       }
       else if (value.type == 'unpublish') {
@@ -138,7 +138,7 @@ WildRTC.prototype.removeListener = function (senderId) {
   for (var key in this.receivers) {
     var value = this.receivers[key];
     if (value.sender_id == senderId) {
-      var sessionId = value.senssion_id;
+      var sessionId = value.session_id;
       var sessionInfo = self.receivers[sessionId];
       if (sessionInfo && sessionInfo.tick != null) {
         clearInterval(sessionInfo.tick);
@@ -383,7 +383,7 @@ var adapter = require('webrtc-adapter');
 module.exports = require('./WildRTC');
 if (window)
   window.WildRTC = module.exports;
-}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_c59c14fc.js","/")
+}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_81343059.js","/")
 },{"./WildRTC":1,"buffer":4,"g5I+bs":6,"webrtc-adapter":7,"wildemitter":13}],3:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
