@@ -1,6 +1,6 @@
 {
   "name": "wild-janus-videoroom",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "description": "video room with wilddog",
   "main": "index.js",
   "scripts": {

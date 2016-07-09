@@ -5,7 +5,6 @@ var adapter = require('webrtc-adapter');
 
 
 var WildRTC = function (ref, config) {
-  this.peerConnection = null;
   this.ref = ref;
   this.config = config;
   this.state = 'connecting';
@@ -172,7 +171,7 @@ WildRTC.prototype.acceptStream = function (senderId, callback) {
       callback(ev.stream);
     }.bind(this),
     function onReady() {
-      console.log('receiver' + senderId + 'ready');
+      this.emit('stream_ready', senderId);
     }.bind(this),
     function onDisconnect() {
       //console.log('disconnect from ' + senderId);
@@ -273,7 +272,7 @@ WildRTC.prototype.answerCb = function (pc, answer) {
   if (answer != null /*&& this.signalingState == 'have-local-offer'*/) {
     this.lastAnswer = answer;
     var desc = new RTCSessionDescription(answer);
-    pc.setRemoteDescription(desc, function () { });
+    pc.setRemoteDescription(desc, function () { },function(err){});
   }
 }
 WildRTC.prototype.offerCb = function (pcInfo, offer) {
@@ -383,7 +382,7 @@ var adapter = require('webrtc-adapter');
 module.exports = require('./WildRTC');
 if (window)
   window.WildRTC = module.exports;
-}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_81343059.js","/")
+}).call(this,require("g5I+bs"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_3a1801f3.js","/")
 },{"./WildRTC":1,"buffer":4,"g5I+bs":6,"webrtc-adapter":7,"wildemitter":13}],3:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';

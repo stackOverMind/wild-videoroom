@@ -270,7 +270,7 @@ WildRTC.prototype.answerCb = function (pc, answer) {
   if (answer != null /*&& this.signalingState == 'have-local-offer'*/) {
     this.lastAnswer = answer;
     var desc = new RTCSessionDescription(answer);
-    pc.setRemoteDescription(desc, function () { });
+    pc.setRemoteDescription(desc, function () { },function(err){});
   }
 }
 WildRTC.prototype.offerCb = function (pcInfo, offer) {
