@@ -352,7 +352,7 @@ WildRTC.prototype.sendCandi = function (sessionId, ispublisher, candi) {
 
 WildRTC.prototype.sendCandiComplete = function (sessionId, ispublisher) {
   var data = {
-    from: this.sessionId,
+    from: sessionId,
     to: this.to,
     ptype: 'listener',
     type: 'candi-complete'
