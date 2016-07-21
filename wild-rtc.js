@@ -113,6 +113,7 @@ WildRTC.prototype.publish = function (stream, callback) {
     function onDisconnect() {
       this.state = 'disconnected';
       this.close();
+      //this.sendUnpublish(this.sessionId);
       this.emit('disconnected');
     }.bind(this),
     function onNegotitionNeeded() {
@@ -134,35 +135,27 @@ WildRTC.prototype.publish = function (stream, callback) {
 }
 WildRTC.prototype.removeListener = function (senderId) {
   var self = this;
-  for (var key in this.receivers) {
-    var value = this.receivers[key];
-    if (value.sender_id == senderId) {
-      var sessionId = value.session_id;
-      var sessionInfo = self.receivers[sessionId];
-      if (sessionInfo && sessionInfo.tick != null) {
-        clearInterval(sessionInfo.tick);
-        sessionInfo.tick = null;
-      }
-      try {
-        sessionInfo.receiver.close()
-      } catch (e) {
-        //TODO
-      }
-      delete this.receivers[sessionId];
-      this.emit('stream_removed', senderId);
+  var sessionId = senderId + '-' + this.sessionId;
+  var sessionInfo = this.receivers[sessionId];
+  if (sessionInfo && sessionInfo.tick != null) {
+    clearInterval(sessionInfo.tick);
+    sessionInfo.tick = null;
+    try {
+      sessionInfo.receiver.close()
+    } catch (e) {
+      //TODO
     }
+    delete this.receivers[sessionId];
+    this.emit('stream_removed', senderId);
   }
 }
 WildRTC.prototype.acceptStream = function (senderId, callback) {
-  for (var attr in this.receivers) {
-    var item = this.receivers[attr];
-    if (item.sender_id == senderId) {
-      callback(new Error("stream has been accepted:", sessionId));
-      return;
-    }
+  var sessionId = senderId +'-'+ this.sessionId;
+  if (this.receivers[sessionId] != null) {
+    callback(new Error("stream has been accepted:", senderId));
+    return;
   }
   var receiver = new RTCPeerConnection();
-  var sessionId = this.ref.push().key()
   this.receivers[sessionId] = {
     receiver: receiver,
     sender_id: senderId,
@@ -376,7 +369,14 @@ WildRTC.prototype.sendKeepAlive = function (sessionId) {
   }
   this.ref.push(data);
 }
-
+WildRTC.prototype.sendUnpublish = function (sessionId) {
+  var data = {
+    from: sessionId,
+    to: '*',
+    type: 'unpublish'
+  }
+  this.ref.push(data);
+}
 
 }).call(this,require("IrXUsu"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/WildRTC.js","/")
 },{"IrXUsu":6,"buffer":3,"webrtc-adapter":8,"wildemitter":17}],2:[function(require,module,exports){
@@ -386,7 +386,7 @@ var adapter = require('webrtc-adapter');
 module.exports = require('./WildRTC');
 if (window)
   window.WildRTC = module.exports;
-}).call(this,require("IrXUsu"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_5b048767.js","/")
+}).call(this,require("IrXUsu"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_309662f2.js","/")
 },{"./WildRTC":1,"IrXUsu":6,"buffer":3,"webrtc-adapter":8,"wildemitter":17}],3:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /*!
