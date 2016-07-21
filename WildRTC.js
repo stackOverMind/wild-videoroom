@@ -24,7 +24,7 @@ WildRTC.prototype.init = function (callback) {
     if (value.to == this.sessionId || value.to == '*') {
       // this is sender message
       if (value.type == 'join-success' && !!this.joined == false) {
-        this.joined = true;    
+        this.joined = true;
         //keep alive
         this.aliveTick = setInterval(function () {
           this.sendKeepAlive(this.sessionId);
@@ -92,7 +92,7 @@ WildRTC.prototype.publish = function (stream, callback) {
   if (!!this.joined == false) {
     throw new Error("not joined");
   }
-  
+
   //send offer
   this.sender = new RTCPeerConnection(this.config);
 
@@ -128,7 +128,7 @@ WildRTC.prototype.publish = function (stream, callback) {
         this.sendKeepAlive(this.sessionId);
       }.bind(this), 1000);
     }.bind(this)
-    );
+  );
 }
 WildRTC.prototype.removeListener = function (senderId) {
   var self = this;
@@ -152,8 +152,12 @@ WildRTC.prototype.removeListener = function (senderId) {
   }
 }
 WildRTC.prototype.acceptStream = function (senderId, callback) {
-  if (this.receivers[sessionId] != null) {
-    callback(new Error("stream has been accepted:", sessionId));
+  for (var attr in this.receivers) {
+    var item = this.receivers[attr];
+    if (item.sender_id == senderId) {
+      callback(new Error("stream has been accepted:", sessionId));
+      return;
+    }
   }
   var receiver = new RTCPeerConnection();
   var sessionId = this.ref.push().key()
@@ -270,7 +274,7 @@ WildRTC.prototype.answerCb = function (pc, answer) {
   if (answer != null /*&& this.signalingState == 'have-local-offer'*/) {
     this.lastAnswer = answer;
     var desc = new RTCSessionDescription(answer);
-    pc.setRemoteDescription(desc, function () { },function(err){});
+    pc.setRemoteDescription(desc, function () { }, function (err) { });
   }
 }
 WildRTC.prototype.offerCb = function (pcInfo, offer) {
@@ -369,5 +373,5 @@ WildRTC.prototype.sendKeepAlive = function (sessionId) {
     type: 'keep-alive'
   }
   this.ref.push(data);
-} 
+}
 

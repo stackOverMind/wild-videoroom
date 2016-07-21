@@ -29,9 +29,13 @@
              throw new Error("roomid is to large");
            }
            wildrtc = new WildRTC(ref.child(''+roomId));
+                      var index = 0;
+
            wildrtc.init(function(sessionId){
              console.log('my sessionId is',sessionId);
              navigator.getUserMedia({"video": true},function(stream){
+               document.querySelectorAll('video')[index].src = URL.createObjectURL(stream);
+               index ++;
                console.log('stream publishing to server');
                 wildrtc.publish(stream,function(err){
                   if(err == null){
@@ -43,7 +47,6 @@
             }); 
              
            });
-           var index = 0;
            wildrtc.on('user_added',function(sessionId){
              wildrtc.acceptStream(sessionId,function(stream){ 
               document.querySelectorAll('video')[index].src = URL.createObjectURL(stream);
