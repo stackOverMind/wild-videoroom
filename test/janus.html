@@ -58,6 +58,45 @@
              console.log('disconnected');
            });
         }
+        function printPCStats(pc){
+          var streams = pc.getRemoteStreams();
+          if(streams == null || streams.length == 0){
+            console.log('no stream');
+            return 
+          }
+          var tracks = streams[0].getTracks();
+          if(tracks == null || tracks.length == 0){
+            console.log('no tracks');
+            return;
+          }
+          tracks.forEach(function(track){
+            pc.getStats(track,function(report){
+              report.forEach(function(now){
+                if(now.type == 'ssrc'){
+
+                console.log(now);
+                }
+              });
+            });
+          });
+        }
+        function printStats(wr){
+          console.log('----report start----')
+          if(wr.sender!=null){
+            console.log('report for sender:')
+            printPCStats(wr.sender);
+          }
+          for(attr in wr.receivers){
+            console.log('report for recever:',attr);
+            var receiver = wr.receivers[attr].receiver;
+            printPCStats(receiver);
+          }
+          console.log('----report end----')
+          
+        }
+        setInterval(function(){
+          printStats(wildrtc);
+        },5000)
         function addVideo(id,stream){
           var video = document.createElement('video');
           video.src = URL.createObjectURL(stream);
