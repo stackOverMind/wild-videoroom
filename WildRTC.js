@@ -19,8 +19,9 @@ WildRTC.prototype.init = function (callback) {
   this.ref.push();
 
   this.sendJoin(this.sessionId, true);
-  this.ref.limitToLast(10).on('child_added', function (snap) {
+  this.ref.on('child_added', function (snap) {
     var value = snap.val();
+   // console.log('receive message',snap.key(),value)
     if (value.to == this.sessionId || value.to == '*') {
       // this is sender message
       if (value.type == 'join-success' && !!this.joined == false) {
@@ -148,7 +149,7 @@ WildRTC.prototype.removeListener = function (senderId) {
   }
 }
 WildRTC.prototype.acceptStream = function (senderId, callback) {
-  var sessionId = senderId +'-'+ this.sessionId;
+  var sessionId = senderId + '-' + this.sessionId;
   if (this.receivers[sessionId] != null) {
     callback(new Error("stream has been accepted:", senderId));
     return;
@@ -267,7 +268,11 @@ WildRTC.prototype.answerCb = function (pc, answer) {
   if (answer != null /*&& this.signalingState == 'have-local-offer'*/) {
     this.lastAnswer = answer;
     var desc = new RTCSessionDescription(answer);
-    pc.setRemoteDescription(desc, function () { }, function (err) { });
+    pc.setRemoteDescription(desc, function () {
+      console.log('set remote desc success');
+    }, function (err) {
+      console.error('set remote desc failed', err);
+    });
   }
 }
 WildRTC.prototype.offerCb = function (pcInfo, offer) {
@@ -275,15 +280,11 @@ WildRTC.prototype.offerCb = function (pcInfo, offer) {
   //回answer 并且set remoteref
   var desc = new RTCSessionDescription(JSON.parse(offer));
   pc.setRemoteDescription(desc, function () {
-    this.sendAnswer(pcInfo, function (err) {
-      if (err) {
-        console.error(err);
-      }
+    this.sendAnswer(pcInfo, function () {
+      console.log('set remote desc success');
     });
-    //listen to candidate
   }.bind(this), function (err) {
-    console.error(err);
-
+    console.error('set remote desc failed', err);
   });
 
 }

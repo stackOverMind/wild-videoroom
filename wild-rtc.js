@@ -21,8 +21,9 @@ WildRTC.prototype.init = function (callback) {
   this.ref.push();
 
   this.sendJoin(this.sessionId, true);
-  this.ref.limitToLast(10).on('child_added', function (snap) {
+  this.ref.on('child_added', function (snap) {
     var value = snap.val();
+   // console.log('receive message',snap.key(),value)
     if (value.to == this.sessionId || value.to == '*') {
       // this is sender message
       if (value.type == 'join-success' && !!this.joined == false) {
@@ -150,7 +151,7 @@ WildRTC.prototype.removeListener = function (senderId) {
   }
 }
 WildRTC.prototype.acceptStream = function (senderId, callback) {
-  var sessionId = senderId +'-'+ this.sessionId;
+  var sessionId = senderId + '-' + this.sessionId;
   if (this.receivers[sessionId] != null) {
     callback(new Error("stream has been accepted:", senderId));
     return;
@@ -269,7 +270,11 @@ WildRTC.prototype.answerCb = function (pc, answer) {
   if (answer != null /*&& this.signalingState == 'have-local-offer'*/) {
     this.lastAnswer = answer;
     var desc = new RTCSessionDescription(answer);
-    pc.setRemoteDescription(desc, function () { }, function (err) { });
+    pc.setRemoteDescription(desc, function () {
+      console.log('set remote desc success');
+    }, function (err) {
+      console.error('set remote desc failed', err);
+    });
   }
 }
 WildRTC.prototype.offerCb = function (pcInfo, offer) {
@@ -277,15 +282,11 @@ WildRTC.prototype.offerCb = function (pcInfo, offer) {
   //回answer 并且set remoteref
   var desc = new RTCSessionDescription(JSON.parse(offer));
   pc.setRemoteDescription(desc, function () {
-    this.sendAnswer(pcInfo, function (err) {
-      if (err) {
-        console.error(err);
-      }
+    this.sendAnswer(pcInfo, function () {
+      console.log('set remote desc success');
     });
-    //listen to candidate
   }.bind(this), function (err) {
-    console.error(err);
-
+    console.error('set remote desc failed', err);
   });
 
 }
@@ -386,7 +387,7 @@ var adapter = require('webrtc-adapter');
 module.exports = require('./WildRTC');
 if (window)
   window.WildRTC = module.exports;
-}).call(this,require("IrXUsu"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_d3ab64e.js","/")
+}).call(this,require("IrXUsu"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {},require("buffer").Buffer,arguments[3],arguments[4],arguments[5],arguments[6],"/fake_5c92d07d.js","/")
 },{"./WildRTC":1,"IrXUsu":6,"buffer":3,"webrtc-adapter":8,"wildemitter":17}],3:[function(require,module,exports){
 (function (process,global,Buffer,__argument0,__argument1,__argument2,__argument3,__filename,__dirname){
 /*!
